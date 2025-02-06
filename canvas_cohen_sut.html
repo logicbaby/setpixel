@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>Cohen-Sutherland裁剪</title>
+<style>
+    body {
+        line-height: 0.8;
+    }
+    canvas {
+        border: 1px solid black;
+    }
+</style>
+
+<body>
+    <h3>Cohen-Sutherland裁剪</h3>
+    <p>红色为裁剪窗口，绿色为裁剪结果</p>
+    <p>
+        P0.x=<input type="range" name="p0x" id="p0x" min="0" max="800" step="1" value="68" />
+        P0.y=<input type="range" name="p0y" id="p0y" min="0" max="600" step="1" value="80" />
+    </p>
+    <p>
+        P1.x=<input type="range" name="p1x" id="p1x" min="0" max="800" step="1" value="580" />
+        P1.y=<input type="range" name="p1y" id="p1y" min="0" max="600" step="1" value="450" />
+    </p>
+    <canvas id="canvas" height="600px" width="800px"></canvas>
+    <script type="text/javascript">
+        function drawAxes(ctx) {
+            ctx.save();
+            ctx.resetTransform();
+            let step = 100;
+            let canvas = ctx.canvas;
+            // 画x轴刻度线
+            for (let x = step; x < canvas.width; x += step) {
+                ctx.moveTo(x, canvas.height);
+                ctx.lineTo(x, canvas.height - 5);
+            }
+            // 画y轴刻度线
+            for (let y = step; y < canvas.height; y += step) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(5, y);
+            }
+            ctx.stroke();
+
+            ctx.font = "15px serif";
+
+            ctx.textBaseline = "top";
+            ctx.fillText(canvas.height, 0, 0);
+
+            ctx.textBaseline = "bottom";
+            ctx.fillText("0", 5, canvas.height);
+
+            ctx.textAlign = "end";
+            ctx.fillText(canvas.width, canvas.width, canvas.height);
+
+            ctx.restore();
+        }
+
+        function drawLineDDA(ctx, p0, p1) {
+            let len;
+            if (Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y)) {
+                len = Math.abs(p1.x - p0.x);
+            } else {
+                len = Math.abs(p1.y - p0.y);
+            }
+            if (len == 0) return;
+            dx = (p1.x - p0.x) / len;
+            dy = (p1.y - p0.y) / len;
+            x = p0.x;
+            y = p0.y;
+            let i = 1;
+            while (i <= len) {
+                ctx.fillRect(x, y, 1, 1);
+                x += dx;
+                y += dy;
+                i++;
+            }
+        }
+
+        function drawRect(ctx, p, w, h) {
+            let pLT = { x: p.x, y: p.y + h };
+            let pRT = { x: p.x + w, y: p.y + h };
+            let pRB = { x: p.x + w, y: p.y };
+            drawLineDDA(ctx, p, pLT);
+            drawLineDDA(ctx, pLT, pRT);
+            drawLineDDA(ctx, pRT, pRB);
+            drawLineDDA(ctx, pRB, p);
+        }
+
+        function encode(p, w, h, p0) {
+            let ret = 0b0000;
+            if (p0.x < p.x)
+                ret |= 0b0001;
+            if (p0.x > (p.x + w))
+                ret |= 0b0010;
+            if (p0.y < p.y)
+                ret |= 0b0100;
+            if (p0.y > (p.y + h))
+                ret |= 0b1000;
+            return ret;
+        }
+
+        function inRect(p, w, h, p0) {
+            return p0.x >= p.x && p0.x <= (p.x + w) && p0.y >= p.y && p0.y <= (p.y + h);
+        }
+
+        function drawLineInRect(ctx, p, w, h, p0, p1) {
+            ctx.save();
+            while (true) {
+                p0Code = encode(p, w, h, p0);
+                p1Code = encode(p, w, h, p1);
+                console.log(`p0=${JSON.stringify(p0)}, p1=${JSON.stringify(p1)}, p0Code=${p0Code}, p1Code=${p1Code}`);
+            
+                // 均在窗口内
+                if ((p0Code | p1Code) == 0) {
+                    ctx.fillStyle = "green";
+                    drawLineDDA(ctx, p0, p1);
+                    break;
+                }
+                // 均在窗口外
+                if ((p0Code & p1Code) !== 0)
+                    break;
+
+                if (p0Code == 0) {
+                    [p0, p1] = [p1, p0];
+                    [p0Code, p1Code] = [p1Code, p0Code];
+                }
+
+                const k = (p1.y - p0.y) / (p1.x - p0.x);
+
+                // 左边界交点
+                if (p0Code & 0b0001) {
+                    p0.y = k * (p.x - p0.x) + p0.y;
+                    p0.x = p.x;
+                }
+                // 右边界交点
+                if (p0Code & 0b0010) {
+                    p0.y = k * (p.x + w - p0.x) + p0.y;
+                    p0.x = p.x + w;
+                }
+                // 下边界交点
+                if (p0Code & 0b0100) {
+                    p0.x = (p.y - p0.y) / k + p0.x;
+                    p0.y = p.y;
+                }
+                // 上边界交点
+                if (p0Code & 0b1000) {
+                    p0.x = (p.y + h - p0.y) / k + p0.x;
+                    p0.y = p.y + h;
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawMain(ctx) {
+            ctx.save();
+            ctx.resetTransform();
+            ctx.translate(0, 600);
+            ctx.rotate(Math.PI);
+            ctx.scale(-1, 1);
+            ctx.fillStyle = "red";
+
+            let p0x = document.querySelector("#p0x");
+            let p0y = document.querySelector("#p0y");
+            let p1x = document.querySelector("#p1x");
+            let p1y = document.querySelector("#p1y");
+
+            let p0 = { x: parseInt(p0x.value), y: parseInt(p0y.value) };
+            let p1 = { x: parseInt(p1x.value), y: parseInt(p1y.value) };
+
+            let p = { x: 150, y: 100 };
+            let w = 400, h = 300;
+            // let p0 = { x: 100, y: 80 };
+            // let p1 = { x: 500, y: 450 };
+
+            // let p = { x: 150, y: 100 };
+            // let w = 400, h = 300;
+            // let p0 = { x: 160, y: 110 };
+            // let p1 = { x: 200, y: 380 };
+            console.log(p0, p1);
+            {
+                drawRect(ctx, p, w, h);
+            }
+            {
+                ctx.save();
+                ctx.fillStyle = '#C0C0C0';
+                drawLineDDA(ctx, p0, p1);
+                ctx.restore();
+            }
+            {
+                drawLineInRect(ctx, p, w, h, p0, p1);
+            }
+            ctx.restore();
+        }
+
+        function draw() {
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            ctx.resetTransform();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawAxes(ctx);
+            drawMain(ctx);
+        }
+
+        function init() {
+            let p0x = document.querySelector("#p0x");
+            let p0y = document.querySelector("#p0y");
+            let p1x = document.querySelector("#p1x");
+            let p1y = document.querySelector("#p1y");
+
+            let arr = new Array();
+            arr.push(p0x);
+            arr.push(p0y);
+            arr.push(p1x);
+            arr.push(p1y);
+
+            for (let i = 0; i < arr.length; ++i) {
+                arr[i].addEventListener("input", function () {
+                    draw();
+                });
+            }
+            added = true;
+
+            draw();
+        }
+
+        window.addEventListener("load", init);
+    </script>
+</body>
+
+</html>

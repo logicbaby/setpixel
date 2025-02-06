@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>3D渲染三角形</title>
+<style>
+    body {
+        line-height: 0.8;
+    }
+    canvas {
+        border: 1px solid black;
+    }
+
+    .xyvalcls {
+        width: 40px;
+        display: inline-block;
+    }
+
+    .coord_label {
+        display: inline-block;
+        width: 80px;
+    }
+
+    .param * {
+        margin: 0;  
+        padding: 0;
+    }
+
+    .param p {
+        margin-left: 30px;
+    }
+
+    #rotate_bat {
+        display: none;
+        float: left;
+    }
+</style>
+
+<body>
+    <h3>3D软渲染三角形</h3>
+    <p></p>
+    <div id="rotate_bat">旋转
+        x=<span class="xyvalcls" id="rotate_x_label"></span><input type="range" name="rotate_x" id="rotate_x" min="-365" max="365" step="1" value="0" />
+        y=<span class="xyvalcls" id="rotate_y_label"></span><input type="range" name="rotate_y" id="rotate_y" min="-365" max="365" step="1" value="0" />
+        z=<span class="xyvalcls" id="rotate_z_label"></span><input type="range" name="rotate_z" id="rotate_z" min="-365" max="365" step="1" value="0" />
+    </div>
+    <div class="param"><h3>视点</h3>
+        <p><span class="coord_label">eye坐标</span>
+            x=<span class="xyvalcls" id="eye_x_label"></span><input type="range" name="eye_x" id="eye_x" min="-1000" max="1000" step="1" value="900" />
+            y=<span class="xyvalcls" id="eye_y_label"></span><input type="range" name="eye_y" id="eye_y" min="-1000" max="1000" step="1" value="900" />
+            z=<span class="xyvalcls" id="eye_z_label"></span><input type="range" name="eye_z" id="eye_z" min="-1000" max="1000" step="1" value="900" />
+        </p>
+        <p><span class="coord_label">target坐标</span>
+            x=<span class="xyvalcls" id="target_x_label"></span><input type="range" name="target_x" id="target_x" min="-1000" max="1000" step="1" value="100" />
+            y=<span class="xyvalcls" id="target_y_label"></span><input type="range" name="target_y" id="target_y" min="-1000" max="1000" step="1" value="100" />
+            z=<span class="xyvalcls" id="target_z_label"></span><input type="range" name="target_z" id="target_z" min="-1000" max="1000" step="1" value="100" />
+        </p>
+        <p><span class="coord_label">up坐标</span>
+            x=<span class="xyvalcls" id="up_x_label"></span><input type="range" name="up_x" id="up_x" min="-1000" max="1000" step="1" value="550" />
+            y=<span class="xyvalcls" id="up_y_label"></span><input type="range" name="up_y" id="up_y" min="-1000" max="1000" step="1" value="750" />
+            z=<span class="xyvalcls" id="up_z_label"></span><input type="range" name="up_z" id="up_z" min="-1000" max="1000" step="1" value="550" />
+        </p>
+    </div>
+    
+    <div class="param"><h3>三角形</h3>
+        <p>P0
+            <input type="color" id="p0color" name="p0color" value="#ff0000" />
+            x=<span class="xyvalcls" id="p0x_label"></span><input type="range" name="p0x" id="p0x" min="-1000" max="1000" step="1" value="0" />
+            y=<span class="xyvalcls" id="p0y_label"></span><input type="range" name="p0y" id="p0y" min="-1000" max="1000" step="1" value="200" />
+            z=<span class="xyvalcls" id="p0z_label"></span><input type="range" name="p0z" id="p0z" min="-1000" max="1000" step="1" value="0" />
+        </p>
+        <p>P1
+            <input type="color" id="p1color" name="p1color" value="#00ff00" />
+            x=<span class="xyvalcls" id="p1x_label"></span><input type="range" name="p1x" id="p1x" min="-1000" max="1000" step="1" value="0" />
+            y=<span class="xyvalcls" id="p1y_label"></span><input type="range" name="p1y" id="p1y" min="-1000" max="1000" step="1" value="0" />
+            z=<span class="xyvalcls" id="p1z_label"></span><input type="range" name="p1z" id="p1z" min="-1000" max="1000" step="1" value="200" />
+        </p>
+        <p>P2
+            <input type="color" id="p2color" name="p2color" value="#0000ff" />
+            x=<span class="xyvalcls" id="p2x_label"></span><input type="range" name="p2x" id="p2x" min="-1000" max="1000" step="1" value="200" />
+            y=<span class="xyvalcls" id="p2y_label"></span><input type="range" name="p2y" id="p2y" min="-1000" max="1000" step="1" value="0" />
+            z=<span class="xyvalcls" id="p2z_label"></span><input type="range" name="p2z" id="p2z" min="-1000" max="1000" step="1" value="0" />
+        </p>
+    </div>
+    <canvas id="canvas" height="600px" width="800px"></canvas>
+    <script type="text/javascript">
+        function drawAxes(ctx) {
+            ctx.save();
+            ctx.resetTransform();
+            let step = 100;
+            let canvas = ctx.canvas;
+            // 画x轴刻度线
+            for (let x = step; x < canvas.width; x += step) {
+                ctx.moveTo(x, canvas.height);
+                ctx.lineTo(x, canvas.height - 5);
+            }
+            // 画y轴刻度线
+            for (let y = step; y < canvas.height; y += step) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(5, y);
+            }
+            ctx.stroke();
+
+            ctx.font = "15px serif";
+
+            ctx.textBaseline = "top";
+            ctx.fillText(canvas.height, 0, 0);
+
+            ctx.textBaseline = "bottom";
+            ctx.fillText("0", 5, canvas.height);
+
+            ctx.textAlign = "end";
+            ctx.fillText(canvas.width, canvas.width, canvas.height);
+
+            ctx.restore();
+        }
+
+        function drawLineDDA(ctx, p0, p1) {
+            ctx.save();
+            hasColor = (p0.color !== undefined) && (p1.color !== undefined);
+            if (p0.y == p1.y) { // 水平线
+                let len = Math.abs(p1.x - p0.x);
+                let dx = (p1.x - p0.x) / len;
+                let x = p0.x; // 这里如果加一个小数，如0.5，能实现类似半透明的效果，原因是canvas支持绘制半个像素，会根据小数实现颜色插值
+                let y = p0.y;
+                for (let i = 0; i <= len; ++i) { // 这里专门用=，是为了让线段末端能有像素点，否则末端会缺失一个像素点。
+                    if (hasColor) {
+                        let t = i / len;
+                        ctx.fillStyle = rgbToHex(colorInterpolation(p0, p1, t));
+                    }
+                    ctx.fillRect(x, y, 1, 1);
+                    x += dx;
+                }
+            } else if (p0.x == p1.x) { // 垂直线
+                let len = Math.abs(p1.y - p0.y);
+                let dy = (p1.y - p0.y) / len;
+                let x = p0.x;
+                let y = p0.y;
+                for (let i = 0; i < len; ++i) {
+                    if (hasColor) {
+                        let t = i / len;
+                        ctx.fillStyle = rgbToHex(colorInterpolation(p0, p1, t));
+                    }
+                    ctx.fillRect(x, y, 1, 1);
+                    y += dy;
+                }
+            } else {
+                let len;
+                if (Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y)) {
+                    len = Math.abs(p1.x - p0.x);
+                } else {
+                    len = Math.abs(p1.y - p0.y);
+                }
+                if (len == 0) return;
+                dx = (p1.x - p0.x) / len;
+                dy = (p1.y - p0.y) / len;
+                x = p0.x + 0.5;
+                y = p0.y + 0.5;
+                let i = 1;
+                while (i <= len) {
+                    if (hasColor) {
+                        let t = i / len;
+                        ctx.fillStyle = rgbToHex(colorInterpolation(p0, p1, t));
+                    }
+                    ctx.fillRect(x, y, 1, 1);
+                    x += dx;
+                    y += dy;
+                    i++;
+                }
+            }
+            ctx.restore();
+        }
+
+        function hexToRgb(hex) {
+            // 去掉前缀#
+            hex = hex.replace(/^#/, '');
+
+            // 处理简写形式#RGB
+            if (hex.length === 3) {
+                hex = hex.split('').map(char => char + char).join('');
+            }
+
+            // 转换为RGB值
+            let bigint = parseInt(hex, 16);
+            let r = (bigint >> 16) & 255;
+            let g = (bigint >> 8) & 255;
+            let b = bigint & 255;
+            //return `rgb(${r}, ${g}, ${b})`;
+            return { r: r, g: g, b: b };
+        }
+
+        function rgbToHex(color) {
+            return '#' + ((1 << 24) + (color.r << 16) + (color.g << 8) + color.b).toString(16).slice(1).toUpperCase();
+        }
+
+        // 颜色插值
+        function colorInterpolation(p0, p1, t) {
+            return {
+                r: Math.floor((1 - t) * p0.color.r + t * p1.color.r),
+                g: Math.floor((1 - t) * p0.color.g + t * p1.color.g),
+                b: Math.floor((1 - t) * p0.color.b + t * p1.color.b)
+            };
+        }
+
+        function getCoordValAndUpdateLabel(selector) {
+            let v = [
+                [parseInt(selector.x.input.value)],
+                [parseInt(selector.y.input.value)],
+                [parseInt(selector.z.input.value)],
+                [0]
+            ];
+            selector.x.label.innerHTML = v[0][0];
+            selector.y.label.innerHTML = v[1][0];
+            selector.z.label.innerHTML = v[2][0];
+            return v;
+        }
+
+        function normalize(v) {
+            let len = Math.sqrt(v[0][0] * v[0][0] + v[1][0] * v[1][0] + v[2][0] * v[2][0]);
+            return [
+                [v[0][0] / len],
+                [v[1][0] / len],
+                [v[2][0] / len],
+                [1]
+            ];
+        }
+
+        function crossProduct(v1, v2) {
+            return [
+                [v1[1][0] * v2[2][0] - v1[2][0] * v2[1][0]],
+                [v1[2][0] * v2[0][0] - v1[0][0] * v2[2][0]],
+                [v1[0][0] * v2[1][0] - v1[1][0] * v2[0][0]]
+            ];
+        }
+
+        function dotMultiply(v1, v2) {
+            return v1[0][0] * v2[0][0] + v1[1][0] * v2[1][0] + v1[2][0] * v2[2][0];
+        }
+
+        function numMul(v, n) {
+            return [
+                [v[0][0] * n],
+                [v[1][0] * n],
+                [v[2][0] * n]
+            ];
+        }
+
+        function matrixMul(m1, m2) {
+            if (m1[0].length != m2.length) {
+                throw new Error("矩阵乘法维度不匹配");
+            }
+            let result = [];
+            for (let i = 0; i < m1.length; ++i) {
+                result[i] = [];
+                for (let j = 0; j < m2[0].length; ++j) {
+                    let sum = 0;
+                    for (let k = 0; k < m2.length; ++k) {
+                        sum += m1[i][k] * m2[k][j];
+                    }
+                    result[i][j] = sum;
+                }
+            }
+            return result;
+        }
+
+        function pointToVertex(p) {
+            return [
+                [p.x],
+                [p.y],
+                [p.z],
+                [1]
+            ];
+        }
+
+        function vertexFloor(v) {
+            return [
+                [Math.floor(v[0][0])],
+                [Math.floor(v[1][0])],
+                [Math.floor(v[2][0])]
+            ];
+        }
+
+        function vertexToPoint(v) {
+            return {
+                x: v[0][0],
+                y: v[1][0],
+                z: v[2][0]
+            };
+        }
+
+        function drawMain(ctx, eyeSelector, targetSelector, upSelector, rotateSelector, triangleSelector, premitives) {
+            let canvas = ctx.canvas;
+            let eyeVer = getCoordValAndUpdateLabel(eyeSelector); // 观察点坐标
+            let targetVer = getCoordValAndUpdateLabel(targetSelector); // 目标点坐标（视线方向）
+            let upVer = getCoordValAndUpdateLabel(upSelector); // 朝上平面中的任意一点坐标，不需要和eye观察点垂直
+            //let rotateVer = getCoordValAndUpdateLabel(rotateSelector); // 旋转轴坐标
+
+            // {
+            //     "type": "triangle",
+            //     "points": [
+            //         { x: psArr[0].x, y: psArr[0].y, z: psArr[0].z, "color": { r: 255, g: 0, b: 0 } },
+            //         { x: psArr[1].x, y: psArr[1].y, z: psArr[1].z, "color": { r: 0, g: 255, b: 0 } },
+            //         { x: psArr[2].x, y: psArr[2].y, z: psArr[2].z, "color": { r: 0, g: 0, b: 255 } }
+            //     ]
+            // }
+            let trianglesPremitives = {
+                "type": "triangle",
+                "points": []
+            }
+            for (let i = 0; i < triangleSelector.length; i++) {
+                let tri = triangleSelector[i];
+                let v = getCoordValAndUpdateLabel(tri);
+                console.log(`c: ${tri.color.input.value}`)
+                let color = hexToRgb(tri.color.input.value);
+                let point = {
+                    x: v[0][0],
+                    y: v[1][0],
+                    z: v[2][0],
+                    "color": color
+                }
+                trianglesPremitives.points.push(point);
+            }
+            console.log(`trianglesPremitives: ${JSON.stringify(trianglesPremitives)}`);
+
+            let allPremitives = premitives.slice(0).concat(trianglesPremitives);
+            console.log(`allPremitives: ${JSON.stringify(allPremitives)}`);
+
+
+            // 模型和世界为右手坐标系，观察为左手坐标系，通过平移和旋转将观察坐标系：
+            // * 将观察坐标系的Z轴正方向和世界坐标系的Z轴正方向重叠
+            // * 将观察坐标系的Y轴正方向和世界坐标系的Y轴正方向重叠
+            // * 将观察坐标系的X轴正方向和世界坐标系的X轴**负**方向重叠
+
+
+            let cv = 3;
+
+            let eyeTargetVecLen = Math.sqrt(Math.pow(targetVer[0][0] - eyeVer[0][0], 2) 
+                                          + Math.pow(targetVer[1][0] - eyeVer[1][0], 2) 
+                                          + Math.pow(targetVer[2][0] - eyeVer[2][0], 2));
+
+            // let r = Math.sqrt(Math.pow(eyeTargetVecLen, 2) - Math.pow(targetVer[1][0] - eyeVer[1][0], 2));
+            // let x = Math.cos(rotateVer[0][0] * Math.PI / 180) * r;
+            // let z = Math.sin(rotateVer[0][0] * Math.PI / 180) * r;
+            // eyeVer[0][0] = x + targetVer[0][0];
+            // eyeVer[2][0] = z + targetVer[2][0];
+
+            let upTargetVerLen = Math.sqrt(Math.pow(targetVer[0][0] - upVer[0][0], 2) 
+                                         + Math.pow(targetVer[1][0] - upVer[1][0], 2) 
+                                         + Math.pow(targetVer[2][0] - upVer[2][0], 2));
+            // r = Math.sqrt(Math.pow(upTargetVerLen, 2) - Math.pow(targetVer[1][0] - upVer[1][0], 2))
+            // x = Math.cos(rotateVer[0][0] * Math.PI / 180) * r;
+            // z = Math.sin(rotateVer[0][0] * Math.PI / 180) * r;
+            // upVer[0][0] = x + targetVer[0][0];
+            // upVer[2][0] = z + targetVer[2][0];
+
+
+            // 观察点到目标点的向量，即观察坐标系的Z轴正方向
+            let eyeTargetVec = [
+                [targetVer[0][0] - eyeVer[0][0]],
+                [targetVer[1][0] - eyeVer[1][0]],
+                [targetVer[2][0] - eyeVer[2][0]],
+                [1]
+            ]
+
+
+
+
+
+
+
+            // 观察点到up点的向量，注意该向量并不一定和eyeTargetVec垂直，该向量为后续计算叉乘得到右向量时使用
+            let eyeUpVec = [
+                [upVer[0][0] - eyeVer[0][0]],
+                [upVer[1][0] - eyeVer[1][0]],
+                [upVer[2][0] - eyeVer[2][0]],
+                [1]
+            ]
+
+            // 将eyeTargetVec归一化，即观察坐标系的Z轴正方向单位向量，vZ
+            let eyeZVecNorm = normalize(eyeTargetVec);
+
+            // eyeTargetVec向量叉乘eyeUpVec向量得到右向量（此时在世界坐标系中，所以为右手坐标系）
+            let eyeRightVec = crossProduct(eyeTargetVec, eyeUpVec);
+            
+            // 将eyeRightVec归一化，即观察坐标系的X轴正方向单位向量，vX
+            let eyeXVecNorm = normalize(eyeRightVec);
+
+            // 可根据eyeXVecNorm叉乘eyeZVecNorm得到观察坐标系的Y轴正方向单位向量，vY，但后续没有用到
+            let eyeYVecNorm = normalize(crossProduct(eyeXVecNorm, eyeZVecNorm));
+
+            // 观察坐标系到世界坐标系的平移矩阵，即观察点在世界坐标系中的位置向量（负值）
+            let eyeTransMat = [
+                [1, 0, 0, -eyeVer[0][0]],
+                [0, 1, 0, -eyeVer[1][0]],
+                [0, 0, 1, -eyeVer[2][0]],
+                [0, 0, 0, 1]
+            ];
+
+            // z轴正方向单位向量（要旋转到的方向）
+            zVecNorm = [
+                [0],
+                [0],
+                [1],
+                [1]
+            ]
+
+            // 绕y轴旋转θ，使eyeZVecNorm旋转到YoZ平面
+            let eyeYRotMat = [];
+            {
+                // eyeZVecNorm投影到XoZ平面上的向量的单位向量（绕Y轴开始旋转的向量）
+                projXoZVecNorm = normalize([
+                    [eyeZVecNorm[0][0]],
+                    [0],
+                    [eyeZVecNorm[2][0]],
+                ]);
+
+                // 点积公式 A·B = |A| * |B| * cosθ
+                // 此处A和B均为单位向量，所以cosθ=A·B=Ax*Bx+Ay*By+Az*Bz
+                // 此处A和B分别代表projXoZVecNorm和zVecNorm向量，so...
+                // 此处计算出来的cosθ仅代表两个向量之间夹角为θ，并没有说明A旋转到B（A在上B在下），还是反过来
+                let cosTheta = dotMultiply(projXoZVecNorm, zVecNorm);
+
+                // 根据三角函数平方关系 sinθ² + cosθ² = 1，可得 sinθ = sqrt(1 - cosθ²)
+                // 但此公式计算出的sinθ可能是正也可能是负值，如π/4和7π/4都满足公式，但sinθ分别是1/sqrt(2)和-1/sqrt(2)
+                // 这分别代表向量projXoZVecNorm在YoZ平面的上方还是下方，如果在上方，则逆时针旋转θ，否则需要逆时针旋转(2π-θ)
+                let sinTheta = Math.sqrt(1 - Math.pow(cosTheta, 2));
+
+                // 使用叉乘可判断projXoZVecNorm是在XoZ平面的上方还是下方
+                // 如果叉乘y结果为正，则projXoZVecNorm在YoZ平面上方，此时仅需逆时针旋转θ，应取正sinθ
+                // 如果叉乘y结果为负，则projXoZVecNorm在YoZ平面下方，此时需逆时针旋转(2π-θ)，sin(2π-θ)=sin(2π)cosθ-cos(2π)sinθ=0*cosθ-1*sinθ=-sinθ，应取负sinθ
+                // 其实以上cosθ也是区分projXoZVecNorm是在上方还是下方的，但cos(2π-θ) = cos(2π)cosθ+sin(2π)sinθ = 1*cosθ + 0*sinθ = cosθ，无需区分
+                let yOrient = crossProduct(projXoZVecNorm, zVecNorm);
+                sinTheta = yOrient[1][0] >= 0 ? sinTheta : -sinTheta;
+
+                eyeYRotMat = [
+                    [cosTheta, 0, sinTheta, 0],  // [cosθ, 0, sinθ, 0]
+                    [0, 1, 0, 0],                // [0, 1, 0, 0]
+                    [-sinTheta, 0, cosTheta, 0], // [-sinθ, 0, cosθ, 0]
+                    [0, 0, 0, 1]                 // [0, 0, 0, 1]
+                ];
+            }
+            // 将vZ旋转到YoZ平面，此时vX旋转到XoZ平面
+            let eyeZVecNormRoted = matrixMul(eyeYRotMat, eyeZVecNorm);
+            let eyeXVecNormRoted = matrixMul(eyeYRotMat, eyeXVecNorm);
+
+            // 绕x轴旋转θ
+            let eyeXRotMat = [];
+            {
+                let cosTheta = dotMultiply(eyeZVecNormRoted, zVecNorm);
+                let sinTheta = Math.sqrt(1 - Math.pow(cosTheta, 2));
+
+                let xOrient = crossProduct(eyeZVecNormRoted, zVecNorm);
+                sinTheta = xOrient[0][0] >= 0 ? sinTheta : -sinTheta;
+
+                eyeXRotMat = [
+                    [1, 0, 0, 0],                // [1, 0, 0, 0]
+                    [0, cosTheta, -sinTheta, 0], // [0, cosθ, -sinθ, 0]
+                    [0, sinTheta, cosTheta, 0],  // [0, sinθ, cosθ, 0]
+                    [0, 0, 0, 1]                 // [0, 0, 0, 1]
+                ];
+            }
+            eyeZVecNormRoted = normalize(matrixMul(eyeXRotMat, eyeZVecNormRoted));
+            eyeXVecNormRoted = normalize(matrixMul(eyeXRotMat, eyeXVecNormRoted));
+
+            // 绕z轴旋转θ
+            let eyeZRotMat = [];
+            {
+                // x轴负方向单位向量（要旋转到的方向）
+                // 旋转使将观察坐标系（左手系）的x轴正方向和世界坐标系（右手系）的x轴负方向重叠
+                let xNegVecNorm = [
+                    [-1],
+                    [0],
+                    [0],
+                    [1]
+                ];
+
+                let cosTheta = dotMultiply(eyeXVecNormRoted, xNegVecNorm); // eyeXVecNormRoted和xNegVecNorm的点积，即两个向量夹角的余弦值
+                let sinTheta = Math.sqrt(1 - Math.pow(cosTheta, 2));
+
+                // 使用叉乘可判断eyeXVecNormRoted是在XoZ平面的上方还是下方
+                // 如果在上方，则仅需逆时针旋转θ
+                // 如果在下方，则需逆时针旋转(2π-θ)
+                let zOrient = crossProduct(eyeXVecNormRoted, xNegVecNorm);
+                sinTheta = zOrient[2][0] >= 0 ? sinTheta : -sinTheta;    
+
+                eyeZRotMat = [
+                    [cosTheta, -sinTheta, 0, 0], // [cosθ, -sinθ, 0, 0]
+                    [sinTheta, cosTheta, 0, 0], // [sinθ, cosθ, 0, 0]
+                    [0, 0, 1, 0], // [0, 0, 1, 0]
+                    [0, 0, 0, 1] // [0, 0, 0, 1]
+                ];
+            }
+            eyeZVecNormRoted = normalize(matrixMul(eyeZRotMat, eyeZVecNormRoted));
+            eyeXVecNormRoted = normalize(matrixMul(eyeZRotMat, eyeXVecNormRoted));
+
+            // 旋转后，观察坐标系的x轴正方向和世界坐标系（右手系）的x轴负方向重叠
+            let eyeLeftCoordMat = [
+                [-1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1]
+            ]
+
+            // 1. 先将视点eyeVer移动到世界坐标原点
+            // 2. 绕y轴旋转θ，使视线eyeZVecNorm旋转到YoZ平面
+            // 3. 绕x轴旋转θ，使视线eyeZVecNorm和世界坐标Z轴重叠
+            // 4. 绕z轴旋转θ，使观察坐标系（左手系）的x轴正方向和世界坐标系（右手系）的x轴负方向重叠
+            // 5. 将世界坐标系转换到观察坐标系，按YoZ平面镜像，即世界坐标的x轴正方向为观察坐标的x轴正方向
+            let viewMat = matrixMul(eyeLeftCoordMat, matrixMul(eyeZRotMat, matrixMul(eyeXRotMat, matrixMul(eyeYRotMat, eyeTransMat))));
+            console.log("viewMat: \n" + viewMat);
+
+            // 将观察坐标系转换到屏幕坐标系，即将观察坐标系的左下角放置在屏幕的中心
+            let viewToScreenMat = [
+                [1, 0, 0, canvas.width / 2],
+                [0, 1, 0, canvas.height / 2],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1]
+            ];
+
+            
+            let finalMat = matrixMul(viewToScreenMat, viewMat);
+            console.log("finalMat: \n" + finalMat);
+
+            // 将canvas坐标原点放置在左下角
+            ctx.save();
+            ctx.translate(0, canvas.height);
+            ctx.rotate(Math.PI);
+            ctx.scale(-1, 1);
+
+            for (let i = 0; i < allPremitives.length; ++i) {
+                let primitive = allPremitives[i];
+                if (primitive.type == "line") {
+                    drawLinePrimitive(ctx, finalMat, primitive);
+                } else if (primitive.type == "triangle") {
+                    drawTrianglePrimitive(ctx, finalMat, primitive);
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function pointWordToScreen(finalMat, point) {
+            let v = pointToVertex(point); // point to vertex
+            let vTransed = matrixMul(finalMat, v); // vertex变换到屏幕坐标系
+            let p = vertexToPoint(vertexFloor(vTransed)); // vertex to point，因为屏幕像素位置都是整数，此处需要取整
+            return p;
+        }
+
+        function drawLinePrimitive(ctx, finalMat, primitive) {
+            let p0 = pointWordToScreen(finalMat, primitive.points[0]);
+            let p1 = pointWordToScreen(finalMat, primitive.points[1]);
+
+            p0['color'] = primitive.points[0]['color'];
+            p1['color'] = primitive.points[1]['color'];
+            // console.log(`line p0: ${JSON.stringify(p0)} p1: ${JSON.stringify(p1)}`);
+            drawLineDDA(ctx, p0, p1);
+        }
+
+        function drawTrianglePrimitive(ctx, finalMat, primitive) {
+            let ps = [];
+            let psOrdered = [];
+            for (let i = 0; i < 3; ++i) {
+                let p = pointWordToScreen(finalMat, primitive.points[i]);
+                p['color'] = primitive.points[i]['color'];
+                ps.push(p);
+                psOrdered.push(p);
+            }
+
+            // 画三角形
+            for (let i = 0; i < ps.length; ++i) {
+                drawLineDDA(ctx, ps[i], ps[(i + 1) % 3]);
+            }
+
+            // 画扫描线填充
+            psOrdered.sort(function (a, b) {
+                return a.y - b.y;
+            })
+            console.log(psOrdered);
+            p0 = psOrdered[0];
+            p1 = psOrdered[1];
+            p2 = psOrdered[2];
+
+            p0p1 = { x: p1.x - p0.x, y: p1.y - p0.y };
+            p0p2 = { x: p2.x - p0.x, y: p2.y - p0.y };
+            z = p0p1.x * p0p2.y - p0p1.y * p0p2.x; // 叉积判断三角形方向，左三角形的z<0，右三角形的z>0
+            leftTriangle = (z < 0) ? true : false;
+            console.log("leftTriangle: " + leftTriangle);
+            let spanLeft = [], spanRight = [];
+            if (leftTriangle) { // 左三角形，左标志点在p0p1和p1p2线段上，右标志点在p0p2线段上
+                for (let y = p0.y; y < p2.y; ++y) {
+                    let x = Math.floor(((y * (p2.x - p0.x) - (p0.y * (p2.x - p0.x)) + p0.x * (p2.y - p0.y))) / (p2.y - p0.y)); // 两点式求x坐标
+                    let t = (y - p0.y) / (p2.y - p0.y);
+                    spanRight.push({ x: x, y: y, t: t, color: colorInterpolation(p0, p2, t) });
+                }
+                for (let y = p0.y; y < p1.y; ++y) {
+                    let x = Math.floor(((y * (p1.x - p0.x) - (p0.y * (p1.x - p0.x)) + p0.x * (p1.y - p0.y))) / (p1.y - p0.y)); // 两点式求x坐标
+                    let t = (y - p0.y) / (p1.y - p0.y);
+                    spanLeft.push({ x: x, y: y, t: t, color: colorInterpolation(p0, p1, t) });
+                }
+                for (let y = p1.y; y < p2.y; ++y) {
+                    let x = Math.floor(((y * (p2.x - p1.x) - (p1.y * (p2.x - p1.x)) + p1.x * (p2.y - p1.y))) / (p2.y - p1.y)); // 两点式求x坐标
+                    let t = (y - p1.y) / (p2.y - p1.y);
+                    spanLeft.push({ x: x, y: y, t: t, color: colorInterpolation(p1, p2, t) });
+                }
+            } else { // 右三角形，左标志点在p0p2线段上，右标志点在p0p1和p1p2线段上
+                for (let y = p0.y; y < p2.y; ++y) {
+                    let x = Math.floor(((y * (p2.x - p0.x) - (p0.y * (p2.x - p0.x)) + p0.x * (p2.y - p0.y))) / (p2.y - p0.y)); // 两点式求x坐标
+                    let t = (y - p0.y) / (p2.y - p0.y);
+                    spanLeft.push({ x: x, y: y, t: t, color: colorInterpolation(p0, p2, t) });
+                }
+                for (let y = p0.y; y < p1.y; ++y) {
+                    let x = Math.floor(((y * (p1.x - p0.x) - (p0.y * (p1.x - p0.x)) + p0.x * (p1.y - p0.y))) / (p1.y - p0.y)); // 两点式求x坐标
+                    let t = (y - p0.y) / (p1.y - p0.y);
+                    spanRight.push({ x: x, y: y, t: t, color: colorInterpolation(p0, p1, t) });
+                }
+                for (let y = p1.y; y < p2.y; ++y) {
+                    let x = Math.floor(((y * (p2.x - p1.x) - (p1.y * (p2.x - p1.x)) + p1.x * (p2.y - p1.y))) / (p2.y - p1.y)); // 两点式求x坐标
+                    let t = (y - p1.y) / (p2.y - p1.y);
+                    spanRight.push({ x: x, y: y, t: t, color: colorInterpolation(p1, p2, t) });
+                }
+            }
+            for (let i = 0; i < Math.min(spanLeft.length, spanRight.length); ++i) {
+                drawLineDDA(ctx, spanLeft[i], spanRight[i]);
+            }
+        }
+        
+        function draw(ctx, eyeSelector, targetSelector, upSelector, rotateSelector, triangleSelector, premitives) {
+            // ctx.globalAlpha = 0.7;
+            canvas = ctx.canvas;
+            ctx.resetTransform();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawAxes(ctx);
+            drawMain(ctx, eyeSelector, targetSelector, upSelector, rotateSelector, triangleSelector, premitives);
+        }
+
+        function initInput(selector, onInput) {
+            for (let key in selector) {
+                let value = selector[key];
+                if (key == "x" || key == "y" || key == "z") {
+                    let input = document.querySelector(value.input_id);
+                    let label = document.querySelector(value.label_id);
+                    input.addEventListener("input", onInput);
+                    value['input'] = input;
+                    value['label'] = label;
+                } else if (key == "color") {
+                    let input = document.querySelector(value.input_id);
+                    input.addEventListener("input", onInput);
+                    value['input'] = input;
+                } else {
+                    console.error(`unknown selector key: ${key}`)
+                }
+                
+                console.log(value.input_id);
+            }
+        }
+
+        function init() {
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // 视点坐标
+            let eyeSelector = {
+                x: {
+                    "input_id": "#eye_x",
+                    "label_id": "#eye_x_label",
+                },
+                y: {
+                    "input_id": "#eye_y",
+                    "label_id": "#eye_y_label",
+                },
+                z: {
+                    "input_id": "#eye_z",
+                    "label_id": "#eye_z_label",
+                }
+            };
+
+            // 投影面中心点坐标（与视点坐标相连为实现方向，vz）
+            let targetSelector = {
+                x: {
+                    "input_id": "#target_x",
+                    "label_id": "#target_x_label",
+                },
+                y: {
+                    "input_id": "#target_y",
+                    "label_id": "#target_y_label",
+                },
+                z: {
+                    "input_id": "#target_z",
+                    "label_id": "#target_z_label",
+                }
+            }
+
+            // eye-target和eye-up确定视点朝上方向（两者不一定垂直，但能确定一朝上平面）
+            let upSelector = {
+                x: {
+                    "input_id": "#up_x",
+                    "label_id": "#up_x_label",
+                },
+                y: {
+                    "input_id": "#up_y",
+                    "label_id": "#up_y_label",
+                },
+                z: {
+                    "input_id": "#up_z",
+                    "label_id": "#up_z_label",
+                }
+            }
+
+            let rotateSelector = {
+                x: {
+                    "input_id": "#rotate_x",
+                    "label_id": "#rotate_x_label",
+                },
+                y: {
+                    "input_id": "#rotate_y",
+                    "label_id": "#rotate_y_label",
+                },
+                z: {
+                    "input_id": "#rotate_z",
+                    "label_id": "#rotate_z_label",
+                }
+            }
+
+            let triangleSelector = [];
+
+            let onInput = onChange = function () {
+                draw(ctx, eyeSelector, targetSelector, upSelector, rotateSelector, triangleSelector, premitives);
+            };
+
+            initInput(eyeSelector, onInput);
+            initInput(targetSelector, onInput);
+            initInput(upSelector, onInput);
+            initInput(rotateSelector, onInput);
+
+            for (let i = 0; i < 3; ++i) {
+                let selector = {
+                    x: {
+                        "input_id": `#p${i}x`,
+                        "label_id": `#p${i}x_label`,
+                    },
+                    y: {
+                        "input_id": `#p${i}y`,
+                        "label_id": `#p${i}y_label`,
+                    },
+                    z: {
+                        "input_id": `#p${i}z`,
+                        "label_id": `#p${i}z_label`,
+                    },
+                    color: {
+                        "input_id": `#p${i}color`
+                    }
+                };
+                initInput(selector, onInput);
+                triangleSelector.push(selector);
+            }
+
+            // 仅包含坐标轴
+            let premitives = [
+                {
+                    "type": "line",
+                    "points": [
+                        { x: 0, y: 0, z: 0, "color": { r: 255, g: 0, b: 0 } },
+                        { x: 300, y: 0, z: 0, "color": { r: 255, g: 0, b: 0 } }
+                    ]
+                },
+                {
+                    "type": "line",
+                    "points": [
+                        { x: 0, y: 0, z: 0, "color": { r: 0, g: 255, b: 0 } },
+                        { x: 0, y: 300, z: 0, "color": { r: 0, g: 255, b: 0 } }
+                    ]
+                },
+                {
+                    "type": "line",
+                    "points": [
+                        { x: 0, y: 0, z: 0, "color": { r: 0, g: 0, b: 255 } },
+                        { x: 0, y: 0, z: 300, "color": { r: 0, g: 0, b: 255 } }
+                    ]
+                }
+            ]
+
+            draw(ctx, eyeSelector, targetSelector, upSelector, rotateSelector, triangleSelector, premitives);
+        }
+
+        window.addEventListener("load", init);
+
+        // 测试矩阵乘法
+        /*
+        {
+            let m1 = [
+                [1, 0, 2],
+                [-1, 3, 1],
+            ];
+            let m2 = [
+                [3, 1],
+                [2, 1],
+                [1, 0],
+            ];
+
+            let res = matrixMul(m1, m2);
+            console.log(res);
+        }
+        {
+            let m1 = [
+                [2, 1, 0],
+                [1, 2, 5],
+            ];
+            let m2 = [
+                [1],
+                [-1],
+                [4.5],
+            ];
+
+            let res = matrixMul(m1, m2);
+            // [[1], [18]]
+            console.log(res);
+        }
+        {
+            let m1 = [
+                [1, 3.7, 5, 7],
+                [7, 9, 11, 2.5],
+                [5.5, 1.5, -2, 0],
+                [1, 2.3, 3, 4.9]
+            ];
+            let m2 = [
+                [1.38, 5],
+                [-0.34,6.7],
+                [4.5,9.81],
+                [1.4,4.67]
+            ];
+
+            let res = matrixMul(m1, m2);
+            // [[1], [18]]
+            console.log(res);
+        }
+        */
+    </script>
+</body>
+
+</html>

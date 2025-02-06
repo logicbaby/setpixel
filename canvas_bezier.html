@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>三次贝塞尔曲线</title>
+<style>
+    body {
+        line-height: 0.8;
+    }
+    canvas {
+        border: 1px solid black;
+    }
+    .xyvalcls {
+        width: 40px;
+        display: inline-block;
+    }
+</style>
+
+<body>
+    <h3>三次贝塞尔曲线</h3>
+    <p>仅根据贝塞尔曲线参数方程计算出x y坐标点，点与点之间未插值</p>
+    <p>P0
+        x=<span class="xyvalcls" id="p0x_val"></span><input type="range" name="p0x" id="p0x" min="0" max="800" step="1" value="100" />
+        y=<span class="xyvalcls" id="p0y_val"></span><input type="range" name="p0y" id="p0y" min="0" max="600" step="1" value="90" />
+    </p>
+    <p>P1
+        x=<span class="xyvalcls" id="p1x_val"></span><input type="range" name="p1x" id="p1x" min="0" max="800" step="1" value="300" />
+        y=<span class="xyvalcls" id="p1y_val"></span><input type="range" name="p1y" id="p1y" min="0" max="600" step="1" value="340" />
+    </p>
+    <p>P2
+        x=<span class="xyvalcls" id="p2x_val"></span><input type="range" name="p2x" id="p2x" min="0" max="800" step="1" value="500" />
+        y=<span class="xyvalcls" id="p2y_val"></span><input type="range" name="p2y" id="p2y" min="0" max="600" step="1" value="400" />
+    </p>
+    <p>P3
+        x=<span class="xyvalcls" id="p3x_val"></span><input type="range" name="p3x" id="p3x" min="0" max="800" step="1" value="600" />
+        y=<span class="xyvalcls" id="p3y_val"></span><input type="range" name="p3y" id="p3y" min="0" max="600" step="1" value="200" />
+    </p>
+    <canvas id="canvas" height="600px" width="800px"></canvas>
+    <script type="text/javascript">
+        function drawAxes(ctx) {
+            ctx.save();
+            ctx.resetTransform();
+            let step = 100;
+            let canvas = ctx.canvas;
+            // 画x轴刻度线
+            for (let x = step; x < canvas.width; x += step) {
+                ctx.moveTo(x, canvas.height);
+                ctx.lineTo(x, canvas.height - 5);
+            }
+            // 画y轴刻度线
+            for (let y = step; y < canvas.height; y += step) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(5, y);
+            }
+            ctx.stroke();
+
+            ctx.font = "15px serif";
+
+            ctx.textBaseline = "top";
+            ctx.fillText(canvas.height, 0, 0);
+
+            ctx.textBaseline = "bottom";
+            ctx.fillText("0", 5, canvas.height);
+
+            ctx.textAlign = "end";
+            ctx.fillText(canvas.width, canvas.width, canvas.height);
+
+            ctx.restore();
+        }
+
+        function drawLineDDA(ctx, p0, p1) {
+            let len;
+            if (Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y)) {
+                len = Math.abs(p1.x - p0.x);
+            } else {
+                len = Math.abs(p1.y - p0.y);
+            }
+            if (len == 0) return;
+            dx = (p1.x - p0.x) / len;
+            dy = (p1.y - p0.y) / len;
+            x = p0.x + 0.5;
+            y = p0.y + 0.5;
+            let i = 1;
+            while (i <= len) {
+                ctx.fillRect(x, y, 1, 1);
+                x += dx;
+                y += dy;
+                i++;
+            }
+        }
+
+        function drawRect(ctx, p, w, h) {
+            let pLT = { x: p.x, y: p.y + h };
+            let pRT = { x: p.x + w, y: p.y + h };
+            let pRB = { x: p.x + w, y: p.y };
+            drawLineDDA(ctx, p, pLT);
+            drawLineDDA(ctx, pLT, pRT);
+            drawLineDDA(ctx, pRT, pRB);
+            drawLineDDA(ctx, pRB, p);
+        }
+
+        function drawPoint(ctx, p, color) {
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+            // drawRect(ctx, { x: p.x - 2, y: p.y - 2}, 5, 5);
+            ctx.restore();
+        }
+
+        function drawMain(ctx, psArr) {
+            let ps = [];
+            for (let i = 0; i < psArr.length - 1; ++i) {
+                let x = Number(psArr[i].value);
+                let y = Number(psArr[i + 1].value);
+                if (i % 2 === 0) {
+                    ps.push({ x: x, y: y });
+
+                    // 更新x y文本显示的值
+                    document.querySelector(`#p${i / 2}x_val`).innerHTML = x;
+                    document.querySelector(`#p${i / 2}y_val`).innerHTML = y;
+                }
+            }
+
+            // 坐标原点放置在左下角
+            ctx.save();
+            ctx.translate(0, 600);
+            ctx.rotate(Math.PI);
+            ctx.scale(-1, 1);
+
+            // 根据控制点画线段
+            for (let i = 0; i < ps.length - 1; ++i) {
+                pa = ps[i];
+                pb = ps[i + 1];
+                drawLineDDA(ctx, pa, pb);
+            }
+
+            for (let t = 0; t < 1.0; t += 0.005) {
+                // 三次贝塞尔曲线参数方程
+                x = Math.pow(1 - t, 3) * ps[0].x + 3 * t * Math.pow(1 - t, 2) * ps[1].x + 3 * Math.pow(t, 2) * (1 - t) * ps[2].x + Math.pow(t, 3) * ps[3].x;
+                y = Math.pow(1 - t, 3) * ps[0].y + 3 * t * Math.pow(1 - t, 2) * ps[1].y + 3 * Math.pow(t, 2) * (1 - t) * ps[2].y + Math.pow(t, 3) * ps[3].y;
+                //console.log(x, y);
+                drawPoint(ctx, { x: x, y: y }, "red");
+            }
+
+            // fillText后的像素点会受到transform的影响（尤其旋转），所以要重置transform，用默认的左上角坐标系绘制文本
+            ctx.save();
+            ctx.resetTransform();
+            ctx.textBaseline = 'middle';
+            ctx.font = "15px serif";
+            ctx.fillStyle = "black";
+            ctx.textAlign = "left";
+            for (let i = 0; i < ps.length; ++i) {
+                ctx.fillText(`p${i}(${ps[i].x}, ${ps[i].y})`, ps[i].x, canvas.height - ps[i].y);
+            }
+            ctx.restore();
+        }
+
+        function draw(ctx, psArr) {
+            canvas = ctx.canvas;
+            ctx.resetTransform();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawAxes(ctx);
+            drawMain(ctx, psArr);
+        }
+
+        function init() {
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            let psArr = [];
+            for (let i = 0; i < 4; ++i) {
+                psArr.push(document.querySelector(`#p${i}x`));
+                psArr.push(document.querySelector(`#p${i}y`));
+            }
+            for (let i = 0; i < psArr.length; ++i) {
+                psArr[i].addEventListener("input", function () {
+                    draw(ctx, psArr);
+                });
+            }
+            draw(ctx, psArr);
+        }
+
+        window.addEventListener("load", init);
+    </script>
+</body>
+
+</html>

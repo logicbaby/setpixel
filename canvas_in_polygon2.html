@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>凸多边形内外判断</title>
+<style>
+    canvas {
+        border: 1px solid black;
+    }
+</style>
+
+<body>
+    <h3>任意多边形内外判断——射线法</h3>
+    <p></p>
+    <p>x=<span id="x"></span>, y=<span id="y"></span></p>
+    <canvas id="canvas" height="600px" width="800px"></canvas>
+    <script type="text/javascript">
+        function drawAxes(ctx) {
+            ctx.save();
+            ctx.resetTransform();
+            let step = 100;
+            let canvas = ctx.canvas;
+            // 画x轴刻度线
+            for (let x = step; x < canvas.width; x += step) {
+                ctx.moveTo(x, canvas.height);
+                ctx.lineTo(x, canvas.height - 5);
+            }
+            // 画y轴刻度线
+            for (let y = step; y < canvas.height; y += step) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(5, y);
+            }
+            ctx.stroke();
+
+            ctx.font = "15px serif";
+
+            ctx.textBaseline = "top";
+            ctx.fillText(canvas.height, 0, 0);
+
+            ctx.textBaseline = "bottom";
+            ctx.fillText("0", 5, canvas.height);
+
+            ctx.textAlign = "end";
+            ctx.fillText(canvas.width, canvas.width, canvas.height);
+
+            ctx.restore();
+        }
+
+        function drawLineDDA(ctx, p0, p1) {
+            let len;
+            if (Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y)) {
+                len = Math.abs(p1.x - p0.x);
+            } else {
+                len = Math.abs(p1.y - p0.y);
+            }
+            if (len == 0) return;
+            dx = (p1.x - p0.x) / len;
+            dy = (p1.y - p0.y) / len;
+            x = p0.x + 0.5;
+            y = p0.y + 0.5;
+            let i = 1;
+            while (i <= len) {
+                ctx.fillRect(x, y, 1, 1);
+                x += dx;
+                y += dy;
+                i++;
+            }
+        }
+
+        function drawRect(ctx, p, w, h) {
+            let pLT = { x: p.x, y: p.y + h };
+            let pRT = { x: p.x + w, y: p.y + h };
+            let pRB = { x: p.x + w, y: p.y };
+            drawLineDDA(ctx, p, pLT);
+            drawLineDDA(ctx, pLT, pRT);
+            drawLineDDA(ctx, pRT, pRB);
+            drawLineDDA(ctx, pRB, p);
+        }
+
+        function drawPoint(ctx, p, color) {
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.fillRect(p.x - 4, p.y - 4, 9, 9);
+            // drawRect(ctx, { x: p.x - 2, y: p.y - 2}, 5, 5);
+            ctx.restore();
+        }
+
+        function drawMain(ctx, p) {
+            ctx.save();
+            ctx.translate(0, 600);
+            ctx.rotate(Math.PI);
+            ctx.scale(-1, 1);
+
+            ps = [
+                { x: 122, y: 87 },
+                { x: 700, y: 200 },
+                { x: 600, y: 500 },
+                { x: 316, y: 366 },
+                // { x: 192, y: 502 },
+                { x: 404, y: 567 },
+                //{ x: 243, y: 370 }, // 如果不用这个点，选择上面一个点，生成凹多边形，则该算法会出错
+                { x: 159, y: 272 }
+            ];
+
+            // 画多边形边
+            for (let i = 0; i < ps.length; ++i) {
+                pa = ps[i];
+                pb = ps[(i + 1) % ps.length]; // 最后一个点和第一个点相连
+                drawLineDDA(ctx, pa, pb);
+            }
+            // 多边形内点红色，多边形外点蓝色
+            if (isPointInPolygon(ps, p)) {
+                drawPoint(ctx, p, "red")
+            } else {
+                drawPoint(ctx, p, "blue")
+            }
+
+            // fillText后的像素点会受到transform的影响（尤其旋转），所以要重置transform，用默认的左上角坐标系绘制文本
+            ctx.save();
+            ctx.resetTransform();
+            ctx.textBaseline = 'middle';
+            ctx.font = "15px serif";
+            ctx.fillStyle = "black";
+            ctx.textAlign = "left";
+            for (let i = 0; i < ps.length; ++i) {
+                ctx.fillText(`p${i}(${ps[i].x}, ${ps[i].y})`, ps[i].x, canvas.height - ps[i].y);
+            }
+            ctx.restore();
+        }
+
+        // 射线法判断点是否在多边形内
+        // https://mp.weixin.qq.com/s/paXdumV4esHwnz3EbEj_1Q
+        const isPointInPolygon = (polygon, pt) => {
+            let count = 0;
+            for (let i = 0; i < polygon.length; i++) {
+                let a = polygon[i];
+                let b = polygon[(i + 1) % polygon.length];
+
+                if (a.y < b.y) {
+                    [a, b] = [b, a];
+                }
+
+                if (b.y <= pt.y && a.y > pt.y) {
+                    const crossProduct =
+                        (pt.x - a.x) * (b.y - a.y) - (b.x - a.x) * (pt.y - a.y); // a1*b2-a2*b1  向量AP✕向量AB
+                    if (crossProduct === 0) {
+                        return true;
+                    }
+                    if (crossProduct > 0) {
+                        count++;
+                    }
+                }
+            }
+
+            return count % 2 === 1;
+        };
+
+        function draw(ctx, p) {
+            canvas = ctx.canvas;
+            ctx.resetTransform();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawAxes(ctx);
+            drawMain(ctx, p);
+        }
+
+        function windowToCanvas(ctx, x, y) {
+            canvas = ctx.canvas;
+            //获取canvas元素距离窗口的一些属性，MDN上有解释
+            let rect = canvas.getBoundingClientRect()
+            //x和y参数分别传入的是鼠标距离窗口的坐标，然后减去canvas距离窗口左边和顶部的距离。
+            return {
+                x: x - rect.left * (canvas.width / rect.width),
+                y: rect.height - (y - rect.top * (canvas.height / rect.height)) // 这里要减去的原因是，canvas的原点在左上角，而鼠标事件的原点在窗口的左上角
+            }
+        }
+
+        function init() {
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            let x = document.querySelector("#x");
+            let y = document.querySelector("#y");
+            let p = { x: x.value, y: y.value }
+            canvas.addEventListener('mousemove', function (e) {
+                let p = windowToCanvas(ctx, e.clientX, e.clientY);
+                x.innerHTML = p.x;
+                y.innerHTML = p.y;
+                draw(ctx, p);
+            });
+            draw(ctx, p);
+        }
+
+        window.addEventListener("load", init);
+    </script>
+</body>
+
+</html>

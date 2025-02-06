@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>三角形填充算法</title>
+<style>
+    canvas {
+        border: 1px solid black;
+    }
+</style>
+
+<body>
+    <h3>三角形填充算法</h3>
+    <p>绿色为扫描点p范围（包围盒），红色为三角形内填充区域。分别求p0p1和p0p向量的叉乘，p1p2和p1p向量的叉乘，p2p0和p2p向量的叉乘，结果方向（z轴）均为正表示在三角形内</p>
+    <canvas id="canvas" height="600px" width="800px"></canvas>
+    <script type="text/javascript">
+        function drawAxes(canvas, ctx) {
+            ctx.save();
+            ctx.resetTransform();
+            let step = 100;
+
+            // 画x轴刻度线
+            for (let x = step; x < canvas.width; x += step) {
+                ctx.moveTo(x, canvas.height);
+                ctx.lineTo(x, canvas.height - 5);
+            }
+            // 画y轴刻度线
+            for (let y = step; y < canvas.height; y += step) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(5, y);
+            }
+            ctx.stroke();
+
+            ctx.font = "15px serif";
+            
+            ctx.textBaseline = "top";
+            ctx.fillText(canvas.height, 0, 0);
+
+            ctx.textBaseline = "bottom";
+            ctx.fillText("0", 5, canvas.height);
+
+            ctx.textAlign = "end";
+            ctx.fillText(canvas.width, canvas.width, canvas.height);
+
+            ctx.restore();
+        }
+
+        function drawMain(canvas, ctx) {
+            ctx.save();
+            ctx.translate(0, 600);
+            ctx.rotate(Math.PI);
+            ctx.scale(-1, 1);
+            ctx.fillStyle = "red";
+
+            p0 = { x: 10, y: 30 };
+            p1 = { x: 700, y: 200 };
+            p2 = { x: 500, y: 400 };
+
+            // ctx.fillStyle = "blue";
+            // ctx.moveTo(p0.x, p0.y);
+            // ctx.lineTo(p1.x, p1.y);
+            // ctx.lineTo(p2.x, p2.y);
+            // ctx.lineTo(p0.x, p0.y);
+            // ctx.stroke();
+
+            x_min = Math.min(p0.x, p1.x, p2.x);
+            x_max = Math.max(p0.x, p1.x, p2.x);
+            y_min = Math.min(p0.y, p1.y, p2.y);
+            y_max = Math.max(p0.y, p1.y, p2.y);
+
+            
+            v01 = { x: p1.x - p0.x, y: p1.y - p0.y }; // 向量(p0, p1)
+            v12 = { x: p2.x - p1.x, y: p2.y - p1.y }; // 向量(p1, p2)
+            v20 = { x: p0.x - p2.x, y: p0.y - p2.y }; // 向量(p2, p0)
+
+            // 绘制所有需要测试的像素点所在的矩形区域
+            ctx.strokeStyle = "blue";
+            ctx.strokeRect(x_min, y_min, x_max - x_min + 1, y_max - y_min + 1);
+
+            for (let x = x_min; x <= x_max; x++) {
+                for (let y = y_min; y <= y_max; y++) {
+                    v0p = { x: x - p0.x, y: y - p0.y }; // 求向量(p0 ,p)
+                    z0 = v01.x * v0p.y - v0p.x * v01.y; // 求向量(p0, p1) ✕ (p0, p)
+
+                    v1p = { x: x - p1.x, y: y - p1.y }; // 求向量(p1 ,p)
+                    z1 = v12.x * v1p.y - v1p.x * v12.y; // 求向量(p1, p2) ✕ (p1, p2)
+
+                    v2p = { x: x - p2.x, y: y - p2.y }; // 求向量(p2 ,p)
+                    z2 = v20.x * v2p.y - v2p.x * v20.y; // 求向量(p2, p0) ✕ (p2 ,p)
+
+                    if (z0 > 0 && z1 > 0 && z2 > 0) {
+                        // 所有叉乘结果都大于0，则在三角形内部
+                        ctx.fillStyle = "rgb(256 0 0)"
+                        ctx.fillRect(x, y, 1, 1);
+                    } else {
+                        ctx.fillStyle = "rgb(0 200 0)"
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+
+            // fillText后的像素点会受到transform的影响（尤其旋转），所以要重置transform，用默认的左上角坐标系绘制文本
+            ctx.save();
+            ctx.resetTransform();
+            ctx.textBaseline='middle';
+            ctx.font = "15px serif";
+            ctx.fillStyle = "black";
+            ctx.textAlign = "left";
+            ctx.fillText(`p0(${p0.x}, ${p0.y})`, p0.x, canvas.height - p0.y);
+            ctx.fillText(`p1(${p1.x}, ${p1.y})`, p1.x, canvas.height - p1.y);
+            ctx.fillText(`p2(${p2.x}, ${p2.y})`, p2.x, canvas.height - p2.y);
+            ctx.restore();
+        }
+
+        function draw() {
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+
+            drawAxes(canvas, ctx);
+            drawMain(canvas, ctx);
+        }
+        window.addEventListener("load", draw);
+    </script>
+</body>
+
+</html>

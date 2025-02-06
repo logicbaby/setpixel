@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>Phong光照</title>
+<style>
+    body {
+        line-height: 0.8;
+    }
+    canvas {
+        border: 1px solid black;
+    }
+    .xyvalcls {
+        width: 40px;
+        display: inline-block;
+    }
+</style>
+
+<body>
+    <h3>Phong光照</h3>
+    <p>三角形三个顶点P0 P1 P2；屏幕是XoY平面；三维空间中有一个点光源，模拟环境光+漫反射光照效果。</p>
+    <div>
+        <p>P0
+            <input type="color" id="p0color" name="p0color" value="#ff0000" />
+            x=<span class="xyvalcls" id="p0x_val"></span><input type="range" name="p0x" id="p0x" min="0" max="800" step="1" value="100" />
+            y=<span class="xyvalcls" id="p0y_val"></span><input type="range" name="p0y" id="p0y" min="0" max="600" step="1" value="70" />
+        </p>
+        <p>P1
+            <input type="color" id="p1color" name="p1color" value="#00ff00" />
+            x=<span class="xyvalcls" id="p1x_val"></span><input type="range" name="p1x" id="p1x" min="0" max="800" step="1" value="300" />
+            y=<span class="xyvalcls" id="p1y_val"></span><input type="range" name="p1y" id="p1y" min="0" max="600" step="1" value="468" />
+        </p>
+        <p>P2
+            <input type="color" id="p2color" name="p2color" value="#0000ff" />
+            x=<span class="xyvalcls" id="p2x_val"></span><input type="range" name="p2x" id="p2x" min="0" max="800" step="1" value="600" />
+            y=<span class="xyvalcls" id="p2y_val"></span><input type="range" name="p2y" id="p2y" min="0" max="600" step="1" value="180" />
+        </p>
+    </div>
+    <div>
+        环境光：
+        颜色：<input type="color" id="ambient_color" name="ambient_color" value="#ffffff" />
+        系数=<span class="xyvalcls" id="ambient_factor_val"></span><input type="range" name="ambient_factor" id="ambient_factor" min="0" max="1" step="0.01" value="0.4" />
+    </div>
+    <div>
+        漫反射光源
+        颜色：<input type="color" id="diffuse_color" name="diffuse_color" value="#ffffff" />
+        系数=<span class="xyvalcls" id="diffuse_factor_val"></span><input type="range" name="diffuse_factor" id="diffuse_factor" min="0" max="1" step="0.01" value="0.9" />
+        x=<span class="xyvalcls" id="diffuse_x_val"></span><input type="range" name="diffuse_x" id="diffuse_x" min="0" max="800" step="1" value="215" />
+        y=<span class="xyvalcls" id="diffuse_y_val"></span><input type="range" name="diffuse_y" id="diffuse_y" min="0" max="600" step="1" value="207" />
+        z=<span class="xyvalcls" id="diffuse_z_val"></span><input type="range" name="diffuse_z" id="diffuse_z" min="-100" max="100" step="1" value="31" />
+    </div>
+    <canvas id="canvas" height="600px" width="800px"></canvas>
+    <script type="text/javascript">
+        function drawAxes(ctx) {
+            ctx.save();
+            ctx.resetTransform();
+            let step = 100;
+            let canvas = ctx.canvas;
+            // 画x轴刻度线
+            for (let x = step; x < canvas.width; x += step) {
+                ctx.moveTo(x, canvas.height);
+                ctx.lineTo(x, canvas.height - 5);
+            }
+            // 画y轴刻度线
+            for (let y = step; y < canvas.height; y += step) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(5, y);
+            }
+            ctx.stroke();
+
+            ctx.font = "15px serif";
+
+            ctx.textBaseline = "top";
+            ctx.fillText(canvas.height, 0, 0);
+
+            ctx.textBaseline = "bottom";
+            ctx.fillText("0", 5, canvas.height);
+
+            ctx.textAlign = "end";
+            ctx.fillText(canvas.width, canvas.width, canvas.height);
+
+            ctx.restore();
+        }
+
+        function drawLineDDA(ctx, p0, p1) {
+            ctx.save();
+            hasColor = (p0.color !== undefined) && (p1.color !== undefined);
+            if (p0.y == p1.y) { // 水平线
+                for (let x = p0.x; x <= p1.x; ++x) {
+                    if (hasColor) { // 有颜色，则插值计算颜色
+                        let t = (x - p0.x) / (p1.x - p0.x);
+                        let color = colorInterpolation(p0, p1, t);
+                        ctx.fillStyle = rgbToHex(color);
+                    }
+                    ctx.fillRect(x, p0.y, 1, 1);
+                }
+            } else if (p0.x == p1.x) { // 垂直线
+                for (let y = p0.y; y <= p1.y; ++y) {
+                    if (hasColor) {
+                        let t = (y - p0.y) / (p1.y - p0.y);
+                        let color = colorInterpolation(p0, p1, t);
+                        ctx.fillStyle = rgbToHex(color);
+                    }
+                    ctx.fillRect(p0.x, y, 1, 1);
+                }
+            } else {
+                let len;
+                if (Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y)) {
+                    len = Math.abs(p1.x - p0.x);
+                } else {
+                    len = Math.abs(p1.y - p0.y);
+                }
+                if (len == 0) return;
+                dx = (p1.x - p0.x) / len;
+                dy = (p1.y - p0.y) / len;
+                x = p0.x + 0.5;
+                y = p0.y + 0.5;
+                let i = 1;
+                while (i <= len) {
+                    if (hasColor) {
+                        let t = i / len;
+                        ctx.fillStyle = rgbToHex(colorInterpolation(p0, p1, t));
+                    }
+                    ctx.fillRect(x, y, 1, 1);
+                    x += dx;
+                    y += dy;
+                    i++;
+                }
+            }
+            ctx.restore();
+        }
+
+        function hexToRgb(hex) {
+            // 去掉前缀#
+            hex = hex.replace(/^#/, '');
+
+            // 处理简写形式#RGB
+            if (hex.length === 3) {
+                hex = hex.split('').map(char => char + char).join('');
+            }
+
+            // 转换为RGB值
+            let bigint = parseInt(hex, 16);
+            let r = (bigint >> 16) & 255;
+            let g = (bigint >> 8) & 255;
+            let b = bigint & 255;
+            //return `rgb(${r}, ${g}, ${b})`;
+            return { r: r, g: g, b: b };
+        }
+
+        function rgbToHex(color) {
+            return '#' + ((1 << 24) + (color.r << 16) + (color.g << 8) + color.b).toString(16).slice(1).toUpperCase();
+        }
+
+        // 颜色插值
+        function colorInterpolation(p0, p1, t) {
+            return {
+                r: Math.floor((1 - t) * p0.color.r + t * p1.color.r),
+                g: Math.floor((1 - t) * p0.color.g + t * p1.color.g),
+                b: Math.floor((1 - t) * p0.color.b + t * p1.color.b)
+            };
+        }
+
+        function drawMain(ctx, psArr, diffuse, ambient) {
+            let ps = [];
+            let psOrdered = [];
+            for (let i = 0; i < psArr.length; ++i) {
+                let x = parseInt(psArr[i].x.value);
+                let y = parseInt(psArr[i].y.value);
+                let color = psArr[i].color.value;
+                p = { x: x, y: y, color: hexToRgb(color) };
+                ps.push(p);
+                psOrdered.push(p);
+                // 更新x y文本显示的值
+                document.querySelector(`#p${i}x_val`).innerHTML = x;
+                document.querySelector(`#p${i}y_val`).innerHTML = y;
+            }
+            // 更新漫反射光源文本显示的值
+            document.querySelector('#diffuse_x_val').innerHTML = parseInt(diffuse.x.value);
+            document.querySelector('#diffuse_y_val').innerHTML = parseInt(diffuse.y.value);
+            document.querySelector('#diffuse_z_val').innerHTML = parseInt(diffuse.z.value);
+            document.querySelector('#diffuse_factor_val').innerHTML = Number(diffuse.factor.value);
+            // 更新环境光文本显示的值
+            document.querySelector('#ambient_factor_val').innerHTML = Number(ambient.ambient_factor.value);
+
+            psOrdered.sort(function (a, b) {
+                return a.y - b.y;
+            })
+            console.log(psOrdered);
+            p0 = psOrdered[0];
+            p1 = psOrdered[1];
+            p2 = psOrdered[2];
+
+            // 扫描线与p0p2, p0p1, p1p2线段的交点
+            let interesectionP0P2 = [], interesectionP0P1 = [], interesectionP1P2 = [];
+            for (let y = p0.y; y < p2.y; ++y) {
+                let x = Math.floor(((y * (p2.x - p0.x) - (p0.y * (p2.x - p0.x)) + p0.x * (p2.y - p0.y))) / (p2.y - p0.y)); // 两点式求x坐标
+                let t = (y - p0.y) / Math.abs(p2.y - p0.y);
+                interesectionP0P2.push({ x: x, y: y, z: ((1 - t) * p0.z + t * p2.z), t: t, color: colorInterpolation(p0, p2, t) });
+            }
+            for (let y = p0.y; y < p1.y; ++y) {
+                let x = Math.floor(((y * (p1.x - p0.x) - (p0.y * (p1.x - p0.x)) + p0.x * (p1.y - p0.y))) / (p1.y - p0.y)); // 两点式求x坐标
+                let t = (y - p0.y) / Math.abs(p1.y - p0.y);
+                interesectionP0P1.push({ x: x, y: y, z: ((1 - t) * p0.z + t * p1.z), t: t, color: colorInterpolation(p0, p1, t) });
+            }
+            for (let y = p1.y; y < p2.y; ++y) {
+                let x = Math.floor(((y * (p2.x - p1.x) - (p1.y * (p2.x - p1.x)) + p1.x * (p2.y - p1.y))) / (p2.y - p1.y)); // 两点式求x坐标
+                let t = (y - p1.y) / Math.abs(p2.y - p1.y);
+                interesectionP1P2.push({ x: x, y: y, z: ((1 - t) * p1.z + t * p2.z), t: t, color: colorInterpolation(p1, p2, t) });
+            }
+
+            const p0p1 = { x: p1.x - p0.x, y: p1.y - p0.y };
+            const p0p2 = { x: p2.x - p0.x, y: p2.y - p0.y };
+            const direction = p0p1.x * p0p2.y - p0p1.y * p0p2.x; // 叉积判断三角形方向，左三角形的z<0，右三角形的z>0
+            const leftTriangle = (direction < 0) ? true : false;
+            console.log("leftTriangle: " + leftTriangle);
+            let spanLeft = [], spanRight = [];
+            if (leftTriangle) { // 左三角形，左标志点在p0p1和p1p2线段上，右标志点在p0p2线段上
+                spanLeft = interesectionP0P1.concat(interesectionP1P2);
+                spanRight = interesectionP0P2;
+            } else { // 右三角形，左标志点在p0p2线段上，右标志点在p0p1和p1p2线段上
+                spanLeft = interesectionP0P2;
+                spanRight = interesectionP0P1.concat(interesectionP1P2);
+            }
+
+            // 坐标原点放置在左下角
+            ctx.save();
+            ctx.translate(0, 600);
+            ctx.rotate(Math.PI);
+            ctx.scale(-1, 1);
+
+            // 画三角形
+            for (let i = 0; i < ps.length; ++i) {
+                drawLineDDA(ctx, ps[i], ps[(i + 1) % 3]);
+            }
+
+            // 漫反射光源
+            diffuseColor = {}; // 光源颜色，取值范围归一化[0,1]
+            {
+                let t = hexToRgb(diffuse.color.value);
+                diffuseColor = { r: t.r / 255, g: t.g / 255, b: t.b / 255 }
+            }
+            diffusePos = { x: parseInt(diffuse.x.value), y: parseInt(diffuse.y.value), z: parseInt(diffuse.z.value) } // 光源坐标
+            let kd = Number(diffuse.factor.value); // 漫反射系数
+
+            // 环境光颜色，取值范围归一化[0,1]
+            ia = {};
+            {
+                let t = hexToRgb(ambient.ambient_color.value);
+                ia = { r: t.r / 255, g: t.g / 255, b: t.b / 255 }
+            }
+            ka = Number(ambient_factor.value); // 环境光系数
+
+            np = { x: 0, y: 0, z: 1 }; // 三角形上的点的单位法向量
+            for (let i = 0; i < spanLeft.length; ++i) {
+                let y = spanLeft[i].y;
+                for (let x = spanLeft[i].x; x < spanRight[i].x; ++x) {
+                    p = { x: x, y: y, z: 0 };
+
+                    // 根据三角形三个顶点的颜色插值计算当前像素的颜色
+                    let t = (x - spanLeft[i].x) / (spanRight[i].x - spanLeft[i].x);
+                    let pcolor = colorInterpolation(spanLeft[i], spanRight[i], t);
+
+                    // 漫反射光照强度计算
+                    pl = { x: diffusePos.x - p.x, y: diffusePos.y - p.y, z: diffusePos.z - p.z }; // 三角形上的点到光源的向量
+                    mpl = Math.sqrt(Math.pow(pl.x, 2) + Math.pow(pl.y, 2) + Math.pow(pl.z, 2)); // pl向量的模
+                    npl = { x: pl.x / mpl, y: pl.y / mpl, z: pl.z / mpl }; // 三角形上的点到光源的单位向量
+                    let cosTheta = npl.x * np.x + npl.y * np.y + npl.z * np.z; // 余弦定理计算光照强度
+                    if (cosTheta < 0) cosTheta = 0; // 光照强度应为非负
+
+                    // 光照强度计算公式：Ia * Ka + Ipl * Kd * cosTheta
+                    li = {
+                        r: ia.r * ka + diffuseColor.r * cosTheta * kd,
+                        g: ia.g * ka + diffuseColor.g * cosTheta * kd,
+                        b: ia.b * ka + diffuseColor.b * cosTheta * kd
+                    }
+
+                    let color = {
+                        r: Math.floor(pcolor.r * ((li.r > 1) ? 1 : li.r)), // 光照强度乘以颜色分量，超过1的部分截断
+                        g: Math.floor(pcolor.g * ((li.g > 1) ? 1 : li.g)),
+                        b: Math.floor(pcolor.b * ((li.b > 1) ? 1 : li.b))
+                    };
+
+                    //console.log(`p=(${x}, ${y}), color=${rgbToHex(color)}, cosTheta=${cosTheta}`);
+                    ctx.fillStyle = rgbToHex(color);
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+            ctx.restore();
+
+            // fillText后的像素点会受到transform的影响（尤其旋转），所以要重置transform，用默认的左上角坐标系绘制文本
+            ctx.save();
+            ctx.resetTransform();
+            ctx.textBaseline = 'middle';
+            ctx.font = "15px serif";
+            ctx.fillStyle = "red";
+            ctx.textAlign = "left";
+            for (let i = 0; i < ps.length; ++i) {
+                ctx.fillStyle = rgbToHex(ps[i].color);
+                ctx.fillText(`p${i}(${ps[i].x}, ${ps[i].y})`, ps[i].x, canvas.height - ps[i].y);
+            }
+            ctx.restore();
+        }
+
+        function draw(ctx, psArr, diffuse, ambient) {
+            canvas = ctx.canvas;
+            ctx.resetTransform();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawAxes(ctx);
+            drawMain(ctx, psArr, diffuse, ambient);
+            //var dataURL = canvas.toDataURL();
+            // console.log(dataURL);
+        }
+
+        function init() {
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            let psArr = [];
+            let diffuse = {};
+            let ambient = {};
+            let onInput = onChange = function () {
+                draw(ctx, psArr, diffuse, ambient);
+            };
+
+            for (let i = 0; i < 3; ++i) {
+                psArr.push({
+                    x: document.querySelector(`#p${i}x`),
+                    y: document.querySelector(`#p${i}y`),
+                    color: document.querySelector(`#p${i}color`)
+                });
+            }
+            for (let i = 0; i < psArr.length; ++i) {
+                psArr[i].x.addEventListener("input", onInput);
+                psArr[i].y.addEventListener("input", onInput);
+                psArr[i].color.addEventListener("change", onChange);
+            }
+            diffuse = {
+                factor: document.querySelector("#diffuse_factor"),
+                x: document.querySelector("#diffuse_x"),
+                y: document.querySelector("#diffuse_y"),
+                z: document.querySelector("#diffuse_z"),
+                color: document.querySelector("#diffuse_color")
+            }
+            diffuse.factor.addEventListener("input", onInput);
+            diffuse.x.addEventListener("input", onInput);
+            diffuse.y.addEventListener("input", onInput);
+            diffuse.z.addEventListener("input", onInput);
+            diffuse.color.addEventListener("input", onChange);
+
+            ambient = {
+                ambient_color: document.querySelector("#ambient_color"),
+                ambient_factor: document.querySelector("#ambient_factor")
+            }
+            ambient.ambient_color.addEventListener("change", onChange);
+            ambient.ambient_factor.addEventListener("input", onInput);
+
+            draw(ctx, psArr, diffuse, ambient);
+        }
+
+        window.addEventListener("load", init);
+    </script>
+</body>
+
+</html>

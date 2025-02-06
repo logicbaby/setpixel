@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>画一个轮廓字</title>
+
+<body>
+    <h3>画一个轮廓字</h3>
+    <canvas id="canvas" height="620px" width="600px" style="border:1px solid green"></canvas>
+    <script type="text/javascript">
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        ctx.save();
+        ctx.translate(0, 600);
+        ctx.rotate(Math.PI);
+        ctx.scale(-1, 1);
+
+        ctx.beginPath();
+        ctx.moveTo(63, 160);
+        ctx.bezierCurveTo(63, 186, 67.5, 209.5, 76.5, 230.5);
+        ctx.bezierCurveTo(85.5, 251.5, 98.5, 269.333, 115.5, 284);
+        ctx.bezierCurveTo(132.5, 298.667, 153, 310, 177, 318);
+        ctx.bezierCurveTo(201, 326, 228, 330, 258, 330);
+        ctx.lineTo(422, 330);
+        ctx.lineTo(422, 375);
+        ctx.bezierCurveTo(422, 409, 410.833, 435.5, 388.5, 454.5);
+        ctx.bezierCurveTo(366.167, 473.5, 334, 483, 292, 483);
+        ctx.bezierCurveTo(261.333, 483, 235.167, 477.333, 213.5, 466);
+        ctx.bezierCurveTo(191.833, 454.667, 177.333, 439, 170, 419);
+        ctx.lineTo(80, 419);
+        ctx.bezierCurveTo(89.3333, 462.333, 113.167, 496.667, 151.5, 522);
+        ctx.bezierCurveTo(189.833, 547.333, 237.333, 560, 294, 560);
+        ctx.bezierCurveTo(362, 560, 415.333, 544.167, 454, 512.5);
+        ctx.bezierCurveTo(492.667, 480.833, 512, 436.667, 512, 380);
+        ctx.lineTo(512, 0);
+        ctx.lineTo(430, 0);
+        ctx.lineTo(430, 105);
+        ctx.lineTo(422, 105);
+        ctx.bezierCurveTo(413.333, 69.6667, 393, 41.6667, 361, 21);
+        ctx.bezierCurveTo(329, 0.333333, 290, -10, 244, -10);
+        ctx.bezierCurveTo(188.667, -10, 144.667, 5.33333, 112, 36);
+        ctx.bezierCurveTo(79.3333, 66.6667, 63, 108, 63, 160);
+        // ctx.fillStyle = 'rgba(255, 0, 0, 1)';
+        // ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 0, 0, 1)';
+        ctx.stroke();
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.moveTo(264, 64);
+        ctx.bezierCurveTo(286.667, 64, 307.667, 67, 327, 73);
+        ctx.bezierCurveTo(346.333, 79, 363, 87.5, 377, 98.5);;
+        ctx.bezierCurveTo(391, 109.5, 402, 122.333, 410, 137);
+        ctx.moveTo(410, 137);
+        ctx.bezierCurveTo(418, 151.667, 422, 167.667, 422, 185);
+        ctx.lineTo(422, 260);
+        ctx.lineTo(260, 260);
+        ctx.bezierCurveTo(226.667, 260, 200.5, 251.333, 181.5, 234);
+        ctx.bezierCurveTo(162.5, 216.667, 153, 192.667, 153, 162);
+        ctx.bezierCurveTo(153, 131.333, 162.667, 107.333, 182, 90);
+        ctx.bezierCurveTo(201.333, 72.6667, 228.667, 64, 264, 64);
+        // ctx.fillStyle = 'rgba(0, 0, 255, 1)';
+        // ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 0, 255, 1)';
+        ctx.stroke();
+        ctx.closePath();
+    </script>
+</body>
+
+</html>

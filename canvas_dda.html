@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>DDA画线算法</title>
+
+<body>
+    <h2>DDA画线算法</h2>
+    <canvas id="canvas" height="600px" width="800px" style="border:1px solid green"></canvas>
+    <script type="text/javascript">
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        ctx.save();
+        ctx.translate(0, 600);
+        ctx.rotate(Math.PI);
+        ctx.scale(-1, 1);
+        ctx.fillStyle = "red";
+        x0 = 10; y0 = 30;
+        x1 = 700; y1 = 300;
+        dx = x1 - x0; dy = y1 - y0;
+        k = dy / dx;
+        if (k < 1) {
+            for (let i = 0; i < dx; i++) {
+                ctx.fillRect(x0 + i, y0 + k * i, 1, 1);
+            }
+        } else {
+            for (let i = 0; i < dy; i++) {
+                ctx.fillRect(x0 + dx / dy * i, y0 + i, 1, 1);
+            }
+        }
+    </script>
+</body>
+
+</html>
