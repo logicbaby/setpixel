@@ -67,12 +67,16 @@
 
 书上的公式都太抽象了，还是豆包给的简单：
 
-三阶贝塞尔曲线有4个控制点$P_0(x_0,y_0), P_1(x_1,y_1), P_2(x_2,y_2), P_3(x_3,y_3)$，参数方程为：
+三阶贝塞尔曲线有4个控制点 $P_0(x_0,y_0), P_1(x_1,y_1), P_2(x_2,y_2), P_3(x_3,y_3)$ ，参数方程为：
+
 $$
-x(t)=(1-t)^3x_0+3t(1-t)^2x_1+3t^2(1-t)x_2+t^3x_3 \\
+\begin{cases}
+x(t)=(1-t)^3x_0+3t(1-t)^2x_1+3t^2(1-t)x_2+t^3x_3 \\\\
 y(t)=(1-t)^3y_0+3t(1-t)^2y_1+3t^2(1-t)y_2+t^3y_3
+\end{cases}
 $$
-假如$t=0.01$，然后`for (let i = 0.0; i < 1; i += t) { xt =...; yt = ...;}`计算出来100个点，这100个点连起来就是三阶贝塞尔曲线。
+
+假如 $t=0.01$ ，然后`for (let i = 0.0; i < 1; i += t) { xt =...; yt = ...;}`计算出来100个点，这100个点连起来就是三阶贝塞尔曲线。
 
 [canvas_bezier.html](canvas_bezier.html)
 
@@ -84,7 +88,7 @@ $$
 
 图形学里到处都是向量、矩阵，陆陆续续回顾了下向量、矩阵的运算。突然想到能利用叉乘判断三角形内外，马上实践一下。
 
-向量$\vec{A}=(x_1, y_1), \vec{B}=(x_2, y_2), 则\vec{A}\times\vec{B}=x_1y_2-y_1x_2$，通过$\vec{A}\times\vec{B}$的结果是正数还是负数判断两者的顺时针还是逆时针方向，进而判断三角形内外。
+向量 $\vec{A}=(x_1, y_1), \vec{B}=(x_2, y_2), 则\vec{A}\times\vec{B}=x_1y_2-y_1x_2$ ，通过 $\vec{A}\times\vec{B}$ 的结果是正数还是负数判断两者的顺时针还是逆时针方向，进而判断三角形内外。
 
 [canvas_triangle_fill](canvas_triangle_fill)
 
@@ -123,21 +127,30 @@ $$
 这里使用向量叉积判断是左三角形还是有三角形，分别求每条扫描线两端和三角形边的交点，然后执行扫描线实现光栅化，过程中利用双线性插值生成三角形内每个点的颜色值。
 
 ![](./img/doc/canvas_triangle_color_fill_alg.png)
+
 $$
-t_d=\frac{AD}{AB} \\
-D_r=(1-t_d)A_r+t_dB_r \\
-D_g=(1-t_d)A_g+t_dB_g \\
-D_b=(1-t_d)A_b+t_dB_b \\
-\\
-t_e=\frac{AE}{AC} \\
-E_r=(1-t_e)A_r+t_eC_r \\
-E_g=(1-t_e)A_g+t_eC_g \\
-E_b=(1-t_e)A_b+t_eC_b \\
-\\
-t_f=\frac{DF}{DE} \\ 
-F_r=(1-t_f)D_r+t_fE_r \\
-F_g=(1-t_f)D_g+t_fE_g \\
-F_b=(1-t_f)D_b+t_fE_b \\
+\begin{flalign}
+t_d=\frac{AD}{AB} \\\\\\
+D_r=(1-t_d)A_r+t_dB_r \\\\\\
+D_g=(1-t_d)A_g+t_dB_g \\\\\\
+D_b=(1-t_d)A_b+t_dB_b
+\end{flalign}
+$$
+$$
+\begin{flalign}
+t_e=\frac{AE}{AC} \\\\\\
+E_r=(1-t_e)A_r+t_eC_r \\\\\\
+E_g=(1-t_e)A_g+t_eC_g \\\\\\
+E_b=(1-t_e)A_b+t_eC_b
+\end{flalign}
+$$
+$$
+\begin{flalign}
+t_f=\frac{DF}{DE} \\\\\\
+F_r=(1-t_f)D_r+t_fE_r \\\\\\
+F_g=(1-t_f)D_g+t_fE_g \\\\\\
+F_b=(1-t_f)D_b+t_fE_b
+\end{flalign}
 $$
 
 
@@ -151,11 +164,13 @@ ps: gif对平滑着色的压缩简直惨不忍睹 - -
 
 ## 光照计算——Phong
 
-颜色有了，那也得有光。这也是我之前没完全整明白的部分，好吧，开始上强度了…重新翻了下书，突然发觉也不是那么复杂。无非是利用单位向量点积算几个$\cos{\theta}$的值嘛。那先来个简化的场景，假如屏幕是XoY平面，然后三维空间有个点光源，模拟一下“环境光照+漫反射光照”的计算。至于镜面反射，额，这个场景还没有视点…
+颜色有了，那也得有光。这也是我之前没完全整明白的部分，好吧，开始上强度了…重新翻了下书，突然发觉也不是那么复杂。无非是利用单位向量点积算几个 $\cos{\theta}$ 的值嘛。那先来个简化的场景，假如屏幕是XoY平面，然后三维空间有个点光源，模拟一下“环境光照+漫反射光照”的计算。至于镜面反射，额，这个场景还没有视点…
+
 $$
 \mathit{I}=\mathit{I_e}+\mathit{I_d}=k_a\mathit{I_a}+k_d\mathit{I_p}max(\vec{N}\cdot\vec{L},0)
 $$
-$\vec{N}$是三角形指向纸外（屏幕外）的单位法向量，两条边的叉积。$\vec{L}$是三角形内的点到点光源的单位向量。再结合前面的光滑着色：
+
+$\vec{N}$ 是三角形指向纸外（屏幕外）的单位法向量，两条边的叉积。 $\vec{L}$ 是三角形内的点到点光源的单位向量。再结合前面的光滑着色：
 
 ps: gif对平滑着色+光照的压缩几乎看不了了，三个顶点都调成灰色`rgb(153,153,153)`后勉强能看 - -
 
@@ -174,7 +189,8 @@ ps: gif对平滑着色+光照的压缩几乎看不了了，三个顶点都调成
 参考OpenGL，世界坐标系我用右手系；好像老的固定管线的View坐标系是左手的，那View坐标系我也用左手系。我自己设计了一个旋转规则，**将左手系的View坐标系的+z, +y和右手系的世界坐标系+z, +y重合，将左手系的View坐标系的+x和右手系的世界坐标系-x重合**：
 
 1. 移动View坐标到世界坐标系原点。
-   $$
+
+$$
    \begin{equation}
    	\begin{bmatrix}
    	 1 & 0 & 0 & -eyeVer[0][0] \\
@@ -183,10 +199,11 @@ ps: gif对平滑着色+光照的压缩几乎看不了了，三个顶点都调成
    	 0 & 0 & 0 & 1
    	 \end{bmatrix}
    \end{equation}
-   $$
+$$
    
 2. 按世界坐标y轴旋转，使View坐标系+z旋转到世界坐标YoZ平面
-   $$
+
+$$
    \begin{equation}
    	\begin{bmatrix}
    	 \cos{\theta} & 0 & \sin{\theta} & 0 \\
@@ -195,10 +212,11 @@ ps: gif对平滑着色+光照的压缩几乎看不了了，三个顶点都调成
    	 0 & 0 & 0 & 1
    	 \end{bmatrix}
    \end{equation}
-   $$
-   
+$$
+
 3. 按世界坐标x轴旋转，使View坐标系+z和世界坐标系+z重合
-   $$
+
+$$
    \begin{equation}
    	\begin{bmatrix}
    	 1 & 0 & 0 & 0 \\
@@ -207,10 +225,11 @@ ps: gif对平滑着色+光照的压缩几乎看不了了，三个顶点都调成
    	 0 & 0 & 0 & 1
    	 \end{bmatrix}
    \end{equation}
-   $$
-   
+$$
+
 4. 最后是按世界坐标的z轴旋转，使View坐标系的+y和世界坐标系+y重合，View坐标系的+x和世界坐标系的-x重合
-   $$
+
+$$
    \begin{equation}
    	\begin{bmatrix}
    	 \cos{\theta} & -\sin{\theta} & 0 & 0 \\
@@ -219,33 +238,34 @@ ps: gif对平滑着色+光照的压缩几乎看不了了，三个顶点都调成
    	 0 & 0 & 0 & 1 \\
    	 \end{bmatrix}
    \end{equation}
-   $$
-
-这几步好像都挺简单的，比如第2步，直接用移动后的View坐标系的单位+z向量和世界坐标系的单位+z向量做个点积就得到$\cos{\theta}$了，那根据三角函数$\sin^2{\theta}+\cos^2{\theta}=1$就能算出$\sin{\theta}$，但这里求出来的可能是$\sin{\theta}$也可能是$-\sin{\theta}$，他们分别代表向量是在z轴上面还是下面（如下图红色和蓝色向量）。还有个问题，上面的旋转公式都是逆时针的，还得用三角函数转一下，如下图红色向量和蓝色向量通过向量点积算出来的夹角$\beta=\frac{3\pi}{4}$，绿色和蓝色夹角$\beta'=\frac{3\pi}{4}$，但按照逆时针旋转，红色要旋转$\theta=\beta=\frac{3\pi}{4}$，而绿色要旋转$\theta'=2\pi-\beta'=2\pi-\frac{3\pi}{4}=\frac{5\pi}{4}$。
-
-要判断是红色还是绿色，那么可以使用向量的叉积结果的正负来判断，然后来决定是选择$\sin{\theta}$还是$-\sin{\theta}$，诱导公式：
 $$
-%sin(2π-θ)=sin(2π)cosθ-cos(2π)sinθ=0*cosθ-1*sinθ=-sinθ
-%cos(2π-θ) = cos(2π)cosθ+sin(2π)sinθ = 1*cosθ + 0*sinθ = cosθ
+
+这几步好像都挺简单的，比如第2步，直接用移动后的View坐标系的单位+z向量和世界坐标系的单位+z向量做个点积就得到 $\cos{\theta}$ 了，那根据三角函数 $\sin^2{\theta}+\cos^2{\theta}=1$ 就能算出 $\sin{\theta}$ ，但这里求出来的可能是 $\sin{\theta}$ 也可能是 $-\sin{\theta}$ ，他们分别代表向量是在z轴上面还是下面（如下图红色和蓝色向量）。还有个问题，上面的旋转公式都是逆时针的，还得用三角函数转一下，如下图红色向量和蓝色向量通过向量点积算出来的夹角 $\beta=\frac{3\pi}{4}$ ，绿色和蓝色夹角 $\beta'=\frac{3\pi}{4}$ ，但按照逆时针旋转，红色要旋转 $\theta=\beta=\frac{3\pi}{4}$ ，而绿色要旋转 $\theta'=2\pi-\beta'=2\pi-\frac{3\pi}{4}=\frac{5\pi}{4}$ 。
+
+要判断是红色还是绿色，那么可以使用向量的叉积结果的正负来判断，然后来决定是选择 $\sin{\theta}$ 还是 $-\sin{\theta}$ ，诱导公式：
+
+$$
+\begin{array}{l}
 \sin({2\pi-\theta})=\sin({2\pi})\cos{\theta}-\cos({2\pi})\sin{\theta}=-\sin{\theta} \\
 \cos({2\pi-\theta})=\cos({2\pi})\cos{\theta+\sin({2\pi})sin{\theta}}=\cos\theta
+\end{array}
 $$
+
 ps: 三角函数忘光了😭
 
 <img src="./img/doc/canvas_3d_triangle_rot.png" style="zoom:50%;" />
 
-其实一开始还是用立体几何的方法各种算三维空间中的向量模长，进而算$\cos\ \sin$的值，但要判断的各种正负情况太多了。头一天晚上都没搞定，第二天一早才想到上面的用向量点积算$\cos$，再用叉积判断是选择$\sin{\theta}$还是$-\sin{\theta}$，年三十和初一晚上都在比划“小手枪”（叉乘判断方向），好在费了九牛二虎之力画出来了，顺带还把沉睡的三角函数、线性代数的记忆唤醒了一点儿。
+其实一开始还是用立体几何的方法各种算三维空间中的向量模长，进而算 $\cos\ \sin$ 的值，但要判断的各种正负情况太多了。头一天晚上都没搞定，第二天一早才想到上面的用向量点积算 $\cos$ ，再用叉积判断是选择 $\sin{\theta}$ 还是 $-\sin{\theta}$ ，年三十和初一晚上都在比划“小手枪”（叉乘判断方向），好在费了九牛二虎之力画出来了，顺带还把沉睡的三角函数、线性代数的记忆唤醒了一点儿。
 
 另外还有个问题是View到屏幕的转换，也就是OpenGL里的ViewPort变换，这里很暴力，直接把View的z值扔了，然后原点转到屏幕中间：
+
 $$
-\begin{equation}
-	\begin{bmatrix}
-	 1 & 0 & 0 & \frac{canvas.width}{2} \\
-	 0 & 1 & 0 & \frac{canvas.height}{2} \\
-	 0 & 0 & 1 & 0 \\
-	 0 & 0 & 0 & 1
-	 \end{bmatrix}
-\end{equation}
+\begin{bmatrix}
+ 1 & 0 & 0 & \frac{canvas.width}{2} \\
+ 0 & 1 & 0 & \frac{canvas.height}{2} \\
+ 0 & 0 & 1 & 0 \\
+ 0 & 0 & 0 & 1
+ \end{bmatrix}
 $$
 
 
@@ -276,9 +296,9 @@ $$
 
 2. 三角形内的每个点和三个点的位置关系怎么表示。
 
-   一开始想还用前面那个双线性插值填充三角形的算法，仔细一想要排序顶点、要判断是左三角形还是右三角形、要计算每条扫描线和边的交点、要计算3个t值……要处理的细节太多了。问了下豆包，三角形重心，通过$\alpha\ \beta\ \gamma$三个值确定三角形内的一个点的位置，完全不需要前面那么多的步骤，不用排序顶点、不用管是左三角形还是右三角形，为伟大的数学干一杯🍻
+   一开始想还用前面那个双线性插值填充三角形的算法，仔细一想要排序顶点、要判断是左三角形还是右三角形、要计算每条扫描线和边的交点、要计算3个t值……要处理的细节太多了。问了下豆包，三角形重心，通过 $\alpha\ \beta\ \gamma$ 三个值确定三角形内的一个点的位置，完全不需要前面那么多的步骤，不用排序顶点、不用管是左三角形还是右三角形，为伟大的数学干一杯🍻
 
-   但写的时候出问题了，那$\alpha\ \beta\ \gamma$和顶点的对应关系老搞不对，导致贴的图和顶点的关系不对！豆包和DeepSeek给出了大段的文字描述，问他能不能画个图解释，她说她只是个语言模型画不了图…喵喵喵喵喵😂，最终还是搜索引擎帮解决的，我自己整理了一遍：
+   但写的时候出问题了，那 $\alpha\ \beta\ \gamma$ 和顶点的对应关系老搞不对，导致贴的图和顶点的关系不对！豆包和DeepSeek给出了大段的文字描述，问他能不能画个图解释，她说她只是个语言模型画不了图…喵喵喵喵喵😂，最终还是搜索引擎帮解决的，我自己整理了一遍：
    
    ![](./img/doc/canvas_texture_calc.jpeg)
 
@@ -329,27 +349,24 @@ $$
 搞完上面的贴图，一般图形学里的主要内容（光栅实时渲染部分）好像都沾到点边了，还是继续回来肝软渲染3D！这回老老实实找本书啃一下吧。原来MVP每个矩阵前人都已经准备好了，你只管根据参数生成矩阵用就是了，数学真了不起🍻
 
 世界坐标到眼坐标的转换，也就是OpenGL里的[gluLookAt(eyex, eyey, eyex, centerx, centery, centerz, upx, upy, upz)](https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/gluLookAt.xml)，直接利用前人总结的旋转矩阵：
+
 $$
-\begin{equation}
-	\begin{bmatrix}
-	 S_x & S_y & S_z & -\vec{S}\cdot\vec{eye} \\
-	 U_x & U_y & U_z & -\vec{U}\cdot\vec{eye} \\
-	 -\vec{F_x} & -\vec{F_y} & -\vec{F_z} & \vec{F}\cdot\vec{eye} \\
-	 0 & 0 & 0 & 1
-	 \end{bmatrix}
-\end{equation}
+\begin{bmatrix}
+ S_x & S_y & S_z & -\vec{S}\cdot\vec{eye} \\
+ U_x & U_y & U_z & -\vec{U}\cdot\vec{eye} \\
+ -\vec{F_x} & -\vec{F_y} & -\vec{F_z} & \vec{F}\cdot\vec{eye} \\
+ 0 & 0 & 0 & 1
+ \end{bmatrix}
 $$
 
 $$
 \vec{F}=normalize(
-\begin{equation}
-	\begin{bmatrix}
-	 center_x-eye_x \\
-	 center_y-eye_y \\
-	 center_z-eye_z \\
-	 0
-	 \end{bmatrix}
-\end{equation})
+\begin{bmatrix}
+ center_x-eye_x \\
+ center_y-eye_y \\
+ center_z-eye_z \\
+ 0
+ \end{bmatrix})
 $$
 
 $$
@@ -473,22 +490,24 @@ function project(ver, modelMat, viewMat, perspMat, viewPort) {
 
 ## 再战软渲染3D场景，实现完全体“MVP变换+光滑着色+纹理映射+Phong光照”
 
-第二天我把想法喂给了DeepSeek，光照计算的确是在View空间简单些，但也不是直接从光栅化阶段插值出z值，而是有个叫透视矫正的东西，大概就是说不能直接插值计算$z$值，要有个补偿，而那个补偿是以View空间的z值为参数的一个函数值，这样得到的z值才准确的，甚至$x\ y$也要用这个矫正公式才正确。说实话这点我也没整通透，还没全手工推过这公式，但不妨碍我先用他。
+第二天我把想法喂给了DeepSeek，光照计算的确是在View空间简单些，但也不是直接从光栅化阶段插值出z值，而是有个叫透视矫正的东西，大概就是说不能直接插值计算$z$值，要有个补偿，而那个补偿是以View空间的z值为参数的一个函数值，这样得到的z值才准确的，甚至 $x\ y$ 也要用这个矫正公式才正确。说实话这点我也没整通透，还没全手工推过这公式，但不妨碍我先用他。
 
 三角形内的每个点的View坐标：
+
 $$
-\begin{equation}
 \begin{array}{l}
     P_x=\frac{\alpha\frac{P0_x}{P0_w}+\beta\frac{P1_x}{P1_w}+\gamma\frac{P2_x}{P2_w}}{\frac{\alpha}{P0_w}+\frac{\beta}{P1_w}+\frac{\gamma}{P2_w}} \\
     P_y=\frac{\alpha\frac{P0_y}{P0_w}+\beta\frac{P1_y}{P1_w}+\gamma\frac{P2_y}{P2_w}}{\frac{\alpha}{P0_w}+\frac{\beta}{P1_w}+\frac{\gamma}{P2_w}} \\
     P_z=\frac{\alpha\frac{P0_z}{P0_w}+\beta\frac{P1_z}{P1_w}+\gamma\frac{P2_z}{P2_w}}{\frac{\alpha}{P0_w}+\frac{\beta}{P1_w}+\frac{\gamma}{P2_w}}
 \end{array}
-\end{equation}
 $$
+
 $$
+\begin{array}{l}
 P0_w=-P0_z \\
 P1_w=-P1_z \\
 P2_w=-P2_z
+\end{array}
 $$
 
 最后总算补上了光照计算（环境光+漫反射光+镜面反射光），实现了完整的**MVP变换+光滑着色+纹理映射+Phong光照**
