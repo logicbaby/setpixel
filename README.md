@@ -200,7 +200,7 @@ $$
    	 \end{bmatrix}
    \end{equation}
 $$
-   
+
 2. 按世界坐标y轴旋转，使View坐标系+z旋转到世界坐标YoZ平面
 
 $$
@@ -488,9 +488,11 @@ function project(ver, modelMat, viewMat, perspMat, viewPort) {
 
 
 
+
+
 ## 再战软渲染3D场景，实现完全体“MVP变换+光滑着色+纹理映射+Phong光照”
 
-第二天我把想法喂给了DeepSeek，光照计算的确是在View空间简单些，但也不是直接从光栅化阶段插值出z值，而是有个叫透视矫正的东西，大概就是说不能直接插值计算$z$值，要有个补偿，而那个补偿是以View空间的z值为参数的一个函数值，这样得到的z值才准确的，甚至 $x\ y$ 也要用这个矫正公式才正确。说实话这点我也没整通透，还没全手工推过这公式，但不妨碍我先用他。
+第二天我把想法喂给了DeepSeek，光照计算的确是在View空间简单些，但也不是直接从光栅化阶段插值出z值，而是有个叫透视矫正的东西，大概就是说不能直接插值计算 $z$ 值，要有个补偿，而那个补偿是以View空间的z值为参数的一个函数值，这样得到的z值才准确的，甚至 $x\ y$ 也要用这个矫正公式才正确。说实话这点我也没整通透，还没全手工推过这公式，但不妨碍我先用他。
 
 三角形内的每个点的View坐标：
 
@@ -519,3 +521,95 @@ $$
 另一个正交投影的例子[canvas_3d_triangle_ortho.html](canvas_3d_triangle_ortho.html)
 
 <img src="./img/doc/canvas_3d_triangle_ortho.png" style="zoom:80%;" />
+
+
+
+## 完善上面两个3D软渲染的透视矫正
+
+假期的最后两天反复琢磨了下裁剪空间、齐次空间、NDC空间，期间和豆包掰扯了不知道多少遍，算是理解了些，但也不敢说通透。大概意思是齐次空间是一个非线性的四维空间（所以难理解），经过透视除法之后（NDC空间），很多关系都不是线性的了，无法直接在NDC空间做插值等操作，需要用齐次空间的W的倒数做插值。这里面的数学原理我再慢慢琢磨吧。总之这次的旅程再次打开了我对数学的兴趣，尤其那个视锥体变换到长方体的z值的非线性变化，神奇的很啊…
+
+最后把以上两个3D软渲染的例子都加了透视矫正，按我的理解应该是对的了，但也不敢完全确认…
+
+
+
+## 使用opentype.js读取ttf字体，或取轮廓并绘制
+
+最后回来填个坑，之前改用FrameBuffer后没办法用`context.fillText`“写”文字了，沿着之前的思路：
+
+1. 用opentype.js加载ttf字体。
+
+   opentype.js只能加载ttf文件，因为我要用中文，所以找到的字体是`Songti.ttc`，ttc是多个ttf文件的集合。用opentype.js读取前需要用工具将其中一个字体导出为ttf。这里用的工具是`fontTools.ttLib`
+
+   1. 安装`fonttools`：`pip3 install fonttools`
+
+   2. 导出脚本getTTF.py
+
+      ```python
+      from fontTools.ttLib import TTCollection
+      
+      # 加载 TTC 文件
+      ttc = TTCollection('Songti.ttc')
+      
+      # 提取第一个字体
+      print(len(ttc.fonts))
+      font = ttc.fonts[3]
+      
+      # 保存为 TTF 文件
+      font.save('Songti0.ttf')
+      ```
+
+   3. 执行getTTY.py得到文件`Songti0.ttf`
+
+   4. 直接使用cdn加载太慢了，下载回来一份，这和上面的字体文件也导致无法直接打开html显示了。需要一个简单的http服务。
+
+      ```shell
+      cd setPixel
+      python3 -m http.server 7777
+      ```
+
+   5. 打开地址http://localhost:7777/canvas_opentypejs.html
+
+2. 或取文字的轮廓数据。
+
+   ```javascript
+   const fontPath = 'fonts/Songti0.ttf';
+   // const fontPath = 'fonts/unifont-15.0.01.ttf';
+   const buffer = fetch(fontPath).then(res => res.arrayBuffer());
+   buffer.then(data => {
+       const font = opentype.parse(data);
+       console.log(font);
+       const path = font.getPath('Hello, World! 你好世界！', 0, 150, 72);
+       ...
+   })
+   ```
+   
+3. 根据轮廓数据“画出来”。
+
+   这里直接使用canvas的画线lineTo、贝塞尔曲线quadraticCurveTo/bezierCurveTo函数。后面有空再全部setPixel吧。
+
+   ```javascript
+   ctx.beginPath();
+   for (let i = 0; i < path.commands.length; i++) {
+       let command = path.commands[i];
+       if (command.type === 'M') {
+           ctx.moveTo(command.x, command.y);
+       } else if (command.type === 'L') {
+           ctx.lineTo(command.x, command.y);
+       } else if (command.type === 'Q') {
+           ctx.quadraticCurveTo(command.x1, command.y1, command.x, command.y);
+       } else if (command.type === 'C') {
+           ctx.bezierCurveTo(command.x1, command.y1, command.x2, command.y2, command.x, command.y);
+       } else {
+           console.error("unknown command type: " + command.type);
+       }
+       ctx.stroke();
+   }
+   // ctx.fill();
+   ctx.closePath();
+   ```
+
+   
+
+[canvas_opentypejs.html](canvas_opentypejs.html)
+
+![](./img/doc/canvas_opentypejs.png)

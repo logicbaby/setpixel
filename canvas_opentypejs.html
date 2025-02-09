@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+</head>
+<title>opentype.js读取glyph数据</title>
+
+<body>
+    <h2>opentype.js读取glyph数据</h2>
+    <canvas id="canvas" height="600px" width="800px" style="border:1px solid green"></canvas>
+    <script src="js/opentype.js"></script>
+    <script type="text/javascript">
+        //const fontPath = 'fonts/JetBrainsMono-Regular.ttf';
+        const fontPath = 'fonts/Songti0.ttf';
+        // const fontPath = 'fonts/unifont-15.0.01.ttf';
+        const buffer = fetch(fontPath).then(res => res.arrayBuffer());
+        buffer.then(data => {
+            const font = opentype.parse(data);
+            console.log(font);
+            const path = font.getPath('Hello, World! 你好世界！', 0, 150, 72);
+            console.log(path);
+
+            ctx.save();
+            // ctx.translate(0, 600);
+            // ctx.rotate(Math.PI);
+            // ctx.scale(-1, 1);
+            //ctx.scale(0.5, 0.5);
+
+            ctx.beginPath();
+            for (let i = 0; i < path.commands.length; i++) {
+                let command = path.commands[i];
+                if (command.type === 'M') {
+                    ctx.moveTo(command.x, command.y);
+                } else if (command.type === 'L') {
+                    ctx.lineTo(command.x, command.y);
+                } else if (command.type === 'Q') {
+                    ctx.quadraticCurveTo(command.x1, command.y1, command.x, command.y);
+                } else if (command.type === 'C') {
+                    ctx.bezierCurveTo(command.x1, command.y1, command.x2, command.y2, command.x, command.y);
+                } else {
+                    console.error("unknown command type: " + command.type);
+                }
+                ctx.stroke();
+            }
+            // ctx.fill();
+            ctx.closePath();
+
+            ctx.restore();
+        })
+
+
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+    </script>
+</body>
+
+</html>

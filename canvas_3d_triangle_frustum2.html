@@ -139,7 +139,7 @@
                         rgba = colorInterpolation(p0, p1, t); // 线性插值计算颜色
                     }
                     const z = ((1 - t) * p0.z + t * p1.z); // 线性插值计算z
-                    screen.setPixel(Math.floor(x), Math.floor(y), z, rgba);
+                    screen.setPixel(x, y, z, rgba);
                     x += dx;
                 }
             } else if (p0.x == p1.x) { // 垂直线
@@ -154,7 +154,7 @@
                         rgba = colorInterpolation(p0, p1, t);
                     }
                     const z = ((1 - t) * p0.z + t * p1.z);
-                    screen.setPixel(Math.floor(x), Math.floor(y), z, rgba);
+                    screen.setPixel(x, y, z, rgba);
                     y += dy;
                 }
             } else {
@@ -177,7 +177,7 @@
                         rgba = colorInterpolation(p0, p1, t);
                     }
                     let z = ((1 - t) * p0.z + t * p1.z)
-                    screen.setPixel(Math.floor(x), Math.floor(y), z, rgba);
+                    screen.setPixel(x, y, z, rgba);
                     x += dx;
                     y += dy;
                     i++;
@@ -387,28 +387,127 @@
             return tmp;
         }
 
+
+        // 透视矫正插值
+        function perspectiveCorrectedInterpolation(p0, p1, t) {
+            let hasColor = (p0.color !== undefined) && (p1.color !== undefined);
+            // 透视矫正插值计算齐次空间中的w
+            const w = 1 / ((1 - t) * (1 / p0.w) + t * (1 / p1.w));
+
+            // 透视矫正插值计算齐次空间中的z值，然后除以w得到ndc空间的z值
+            const z = (((1 - t) * (p0.zw / p0.w) + t * (p1.zw / p1.w)) / (1 / w)) / w;
+
+            // 透视矫正插值计算颜色值（此处无需再除以w）
+            const color = hasColor ? 
+                    {
+                        r: Math.floor(((1 - t) * (p0.color.r / p0.w) + t * (p1.color.r / p1.w)) / (1 / w)),
+                        g: Math.floor(((1 - t) * (p0.color.g / p0.w) + t * (p1.color.g / p1.w)) / (1 / w)),
+                        b: Math.floor(((1 - t) * (p0.color.b / p0.w) + t * (p1.color.b / p1.w)) / (1 / w)),
+                        a: (p0.color['a'] !== undefined && p1.color['a'] !== undefined) ?
+                            Math.floor(((1 - t) * (p0.color.a / p0.w) + t * (p1.color.a / p1.w)) / (1 / w)) : 255
+                    } : 
+                    { r: 0, g: 0, b: 0, a: 255 };
+
+            let p = {
+                x: (1 - t) * p0.x + t * p1.x, // 屏幕空间的x y线性插值，无需透视矫正
+                y: (1 - t) * p0.y + t * p1.y,
+                z: z,
+                color: color,
+                w: w, // 齐次空间中的w值，用于后续透视矫正计算屏幕坐标空间的x y z和颜色值
+                zw: z * w, // 齐次空间中的z值，用于后续透视矫正计算屏幕坐标空间的x y z和颜色值
+            };
+            return p;
+        }
+
         function drawLinePrimitive(screen, modelMat, viewMat, perspMat, viewPort, lighting, lookAtVertexes, texture, primitive) {
-            // 深拷贝，因为要修改为屏幕坐标系下的点
-            const p0Point = JSON.parse(JSON.stringify(primitive.points[0]))
-            const p1Point = JSON.parse(JSON.stringify(primitive.points[1]))
-            let p0Ver = project(pointToVertex(p0Point), modelMat, viewMat, perspMat, viewPort);
-            let p1Ver = project(pointToVertex(p1Point), modelMat, viewMat, perspMat, viewPort);
-            // 剔除z值不在[-1, 1]区间内的线段，因为这样的线段在屏幕上不可见
-            if (p0Ver[2][0] < (-1.0 - Number.EPSILON) || p0Ver[2][0] > (1.0 + Number.EPSILON) || 
-                p1Ver[2][0] < (-1.0 - Number.EPSILON || p1Ver[2][0] > (1.0 + Number.EPSILON)))
-                return;
-            // 剔除屏幕坐标系下x, y值<0的线段，因为这样的线段在屏幕上不可见
-            // if (p0Ver[0][0] < (0.0 - Number.EPSILON) || p0Ver[1][0] < (0.0 - Number.EPSILON) ||
-            //     p1Ver[0][0] < (0.0 - Number.EPSILON) || p1Ver[1][0] < (0.0 - Number.EPSILON))
-            //     return;
-            p0Point.x = Math.floor(p0Ver[0][0]);
-            p0Point.y = Math.floor(p0Ver[1][0]);
-            p0Point.z = p0Ver[2][0];
-            p1Point.x = Math.floor(p1Ver[0][0]);
-            p1Point.y = Math.floor(p1Ver[1][0]);
-            p1Point.z = p1Ver[2][0];
-            console.log(`line p0: ${JSON.stringify(p0Point)} p1: ${JSON.stringify(p1Point)}`);
-            drawLineDDA(screen, p0Point, p1Point);
+            const points = [];
+            const pointsVer = [];
+            const pointsPerspedVer = [];
+            const pointsScreenVer = [];
+            for (let i = 0; i < 2; ++i) {
+                const point = primitive.points[i];
+                const pVer = pointToVertex(point);
+                const persped = matrixMul(perspMat, matrixMul(viewMat, matrixMul(modelMat, pVer)));
+                points.push(point);
+                pointsVer.push(pVer);
+                pointsPerspedVer.push(persped);
+
+                // 透视除法，将x y z坐标归一化到[-1, 1]区间(NDC空间)，同时保留齐次空间的w值，用于后续透视矫正计算齐次坐标空间的z坐标和颜色值
+                const tmp = [
+                    [persped[0][0] / persped[3][0]],
+                    [persped[1][0] / persped[3][0]],
+                    [persped[2][0] / persped[3][0]],
+                    [persped[3][0]], // 保留w值，用于后续透视矫正计算齐次坐标空间的z坐标
+                ]
+                tmp[0] = [tmp[0] * (viewPort.width / 2.0) + viewPort.x + (viewPort.width / 2.0)]; // ndc空间到屏幕空间的x y坐标，此处x y需要取整；但z还在cvv空间中，取值范围[-1, 1]，用于后续深度判断，不能取整
+                tmp[1] = [tmp[1] * (viewPort.height / 2.0) + viewPort.y + (viewPort.height / 2.0)];
+                pointsScreenVer.push(tmp);
+            }
+            
+            const p0 = {
+                x: pointsScreenVer[0][0][0], // screen空间x
+                y: pointsScreenVer[0][1][0], // screen空间y
+                z: pointsScreenVer[0][2][0], // ndc空间z [-1, 1]
+                w: pointsScreenVer[0][3][0], // 齐次空间w
+                zw: pointsScreenVer[0][2][0] * pointsScreenVer[0][3][0], // 齐次空间z
+                color: points[0].color
+            };
+            const p1 = {
+                x: pointsScreenVer[1][0][0], // screen空间x
+                y: pointsScreenVer[1][1][0], // screen空间y
+                z: pointsScreenVer[1][2][0], // ndc空间z [-1, 1]
+                w: pointsScreenVer[1][3][0], // 齐次空间w
+                zw: pointsScreenVer[1][2][0] * pointsScreenVer[1][3][0], // 齐次空间z
+                color: points[1].color
+            };
+
+            if (p0.y == p1.y) { // 水平线
+                const len = Math.abs(p1.x - p0.x);
+                const dx = (p1.x - p0.x) / len;
+                let x = p0.x;
+                let y = p0.y;
+                for (let i = 0; i < len; ++i) {
+                    let rgba = { r: 0, g: 0, b: 0, a: 255 };
+                    let t = i / len;
+                    const p = perspectiveCorrectedInterpolation(p0, p1, t);
+                    screen.setPixel(p.x, p.y, p.z, p.color);
+                    x += dx;
+                }
+            } else if (p0.x == p1.x) { // 垂直线
+                let len = Math.abs(p1.y - p0.y);
+                let dy = (p1.y - p0.y) / len;
+                let x = p0.x;
+                let y = p0.y;
+                for (let i = 0; i < len; ++i) {
+                    let rgba = { r: 0, g: 0, b: 0, a: 255 };
+                    let t = i / len;
+                    const p = perspectiveCorrectedInterpolation(p0, p1, t);
+                    screen.setPixel(p.x, p.y, p.z, p.color);
+                    y += dy;
+                }
+            } else {
+                let len;
+                if (Math.abs(p1.x - p0.x) > Math.abs(p1.y - p0.y)) {
+                    len = Math.abs(p1.x - p0.x);
+                } else {
+                    len = Math.abs(p1.y - p0.y);
+                }
+                if (len == 0) return;
+                let dx = (p1.x - p0.x) / len;
+                let dy = (p1.y - p0.y) / len;
+                let x = p0.x;
+                let y = p0.y;
+                let i = 0;
+                while (i < len) {
+                    let rgba = { r: 0, g: 0, b: 0, a: 255 };
+                    let t = i / len;
+                    const p = perspectiveCorrectedInterpolation(p0, p1, t);
+                    screen.setPixel(p.x, p.y, p.z, p.color);
+                    x += dx;
+                    y += dy;
+                    i++;
+                }
+            }
         }
 
         function renderMain(ctx, screen, controls, premitives, texture) {
@@ -524,6 +623,7 @@
             // 由于在view空间中计算光照，将光栅化插值后的屏幕坐标转回view坐标，需要使用透视矫正，需要用到view坐标的z值
             // 故此处需要将mvp变换过程中的view坐标保存下来
             const pointsViewVer = [];
+            const pointsPerspedVer = [];
             const pointsScreenVer = [];
             for (let i = 0; i < pointsWorldVer.length; ++i) {
                 let tmp = matrixMul(modelMat, pointsWorldVer[i]);
@@ -531,12 +631,14 @@
                 pointsViewVer.push(tmp);
 
                 tmp = matrixMul(perspMat, tmp);
+                pointsPerspedVer.push(tmp);
+
                 // 透视除法，将z坐标归一化到[-1, 1]区间
                 tmp = [
                     [tmp[0][0] / tmp[3][0]],
                     [tmp[1][0] / tmp[3][0]],
                     [tmp[2][0] / tmp[3][0]],
-                    [1.0]
+                    [tmp[3][0]]
                 ]
                 tmp[0] = [tmp[0] * (viewPort.width / 2.0) + viewPort.x + (viewPort.width / 2.0)];
                 tmp[1] = [tmp[1] * (viewPort.height / 2.0) + viewPort.y + (viewPort.height / 2.0)];
@@ -545,9 +647,11 @@
             console.log(`pointsScreenVer: ${JSON.stringify(pointsScreenVer)}, pointsViewVer: ${JSON.stringify(pointsViewVer)}`);
 
             for (let i = 0; i < pointsScreenVer.length; ++i) {
-                points[i].x = Math.floor(pointsScreenVer[i][0][0]);
-                points[i].y = Math.floor(pointsScreenVer[i][1][0]);
-                points[i].z = pointsScreenVer[i][2][0];
+                points[i].x = pointsScreenVer[i][0][0]; // screen空间x
+                points[i].y = pointsScreenVer[i][1][0]; // screen空间y
+                points[i].z = pointsScreenVer[i][2][0]; // ndc空间z
+                points[i].w = pointsScreenVer[i][3][0], // 齐次空间w
+                points[i].zw = pointsScreenVer[i][2][0] * pointsScreenVer[i][3][0] // 齐次空间z=ndc空间z*齐次空间w
             }
 
             // 光点位置转换到view坐标系，用于光照计算
@@ -620,9 +724,15 @@
                     let gamma = Math.abs(sp0pp1 / sp0p1p2);
 
                     if (alpha >= -Number.EPSILON && beta >= -Number.EPSILON && gamma >= -Number.EPSILON && (alpha + beta + gamma) <= (1.0 + Number.EPSILON)) {
-                        const z = p0.z * alpha + p1.z * beta + p2.z * gamma; // 重心坐标计算z值，此处简化处理为三角形平面内线性插值
-                        const u = p0.u * alpha + p1.u * beta + p2.u * gamma; // 重心坐标计算纹理u值，此处简化处理为三角形平面内线性插值
-                        const v = p0.v * alpha + p1.v * beta + p2.v * gamma; // 重心坐标计算纹理v值，此处简化处理为三角形平面内线性插值
+                        // 透视矫正插值w
+                        const w = 1 / ((alpha / p0.w + beta / p1.w + gamma / p2.w));
+                        // 透视矫正插值齐次空间z
+                        const zw = (p0.zw * alpha / p0.w + p1.zw * beta / p1.w + p2.zw * gamma / p2.w) / (alpha / p0.w + beta / p1.w + gamma / p2.w);
+                        // 计算ndc空间z，
+                        const z = zw / w;
+                        // 利用齐次空间w，透视矫正插值纹理u v
+                        const u = (p0.u * alpha / p0.w + p1.u * beta / p1.w + p2.u * gamma / p2.w) / (alpha / p0.w + beta / p1.w + gamma / p2.w);
+                        const v = (p0.v * alpha / p0.w + p1.v * beta / p1.w + p2.v * gamma / p2.w) / (alpha / p0.w + beta / p1.w + gamma / p2.w);
 
                         // textureWX textureWY为纹理左下角原点坐标
                         let textureWX = Math.floor(u * (texture.width - 1));
@@ -722,8 +832,6 @@
                         };
 
                         let rgbaTest = { r: 255, g: 255, b: 255, a: 255 };
-
-
                         screen.setPixel(x, y, z, rgba);
                     }
                     
@@ -801,9 +909,10 @@
             screen['frameBuffer'] = new Uint8ClampedArray(4 * screen.width * screen.height);
             screen['zBuffer'] = new Float32Array(screen.width * screen.height);
             screen['setPixel'] = function (x, y, z, color) {
-                if (x < (0.0 - Number.EPSILON) || x >= screen.width || y < (0.0 - Number.EPSILON) || y >= screen.height) return;
-                if (z < -1.0 || z > 1.0) return;
-                let zBufferIdx = screen.width * y + x;
+                if (x < (0.0 - Number.EPSILON) || x >= (screen.width + Number.EPSILON) || y < (0.0 - Number.EPSILON) || y >= (screen.height + Number.EPSILON)) return;
+                if (z < (-1 - Number.EPSILON) || z > (1 + Number.EPSILON)) return;
+                const ix = Math.floor(x), iy = Math.floor(y);
+                let zBufferIdx = screen.width * iy + ix;
                 if (zBufferIdx < 0 || zBufferIdx >= screen.zBuffer.length) {
                     console.warn(`zBufferIdx=${zBufferIdx} out of range`);
                     return;
@@ -813,7 +922,7 @@
                     return;
                 screen.zBuffer[zBufferIdx] = z;
                 // x y原点在左下角，而frameBuffer的原点在左上角，所以要先转换坐标
-                let screenX = Math.floor(x), screenY = Math.floor(screen.height - 1 - y);
+                let screenX = ix, screenY = Math.floor(screen.height - 1 - iy);
                 let frameBufferIdx = (4 * screen.width * screenY) + (4 * screenX);
                 screen.frameBuffer[frameBufferIdx] = color.r;
                 screen.frameBuffer[frameBufferIdx + 1] = color.g;
